@@ -1,4 +1,4 @@
-// package com.myorg;
+// package com.tahomatracker.cdk;
 
 // import software.amazon.awscdk.App;
 // import software.amazon.awscdk.assertions.Template;
@@ -9,13 +9,13 @@
 // import org.junit.jupiter.api.Test;
 
 // example test. To run these tests, uncomment this file, along with the
-// example resource in java/src/main/java/com/myorg/TahomacdkStack.java
-// public class TahomacdkTest {
+// example resource in src/main/java/com/mtrainier/tahomacdk/TahomaTrackerStack.java
+// public class TahomaTrackerTest {
 
 //     @Test
 //     public void testStack() throws IOException {
 //         App app = new App();
-//         TahomacdkStack stack = new TahomacdkStack(app, "test");
+//         TahomaTrackerStack stack = new TahomaTrackerStack(app, "test");
 
 //         Template template = Template.fromStack(stack);
 
