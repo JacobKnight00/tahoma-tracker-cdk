@@ -1,0 +1,33 @@
+# Training artifacts directory - store locally during development
+models/
+logs/
+checkpoints/
+image_cache/
+
+# Python dependencies and virtual env
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.eggs/
+
+# IDE and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# AWS credentials (use environment variables or profiles instead)
+.aws/
+.env
+.env.local
+
+# Data files
+*.jpg
+*.jpeg
+*.png
+*.json
+!config.yaml
+!requirements.txt

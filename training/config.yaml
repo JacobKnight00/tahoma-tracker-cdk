@@ -1,0 +1,93 @@
+# Model Training Configuration
+
+# AWS Configuration
+aws:
+  # Region and credentials are loaded from standard AWS environment variables
+  # or configuration files (~/.aws/config, ~/.aws/credentials)
+
+# DynamoDB Configuration
+dynamodb:
+  table_name: TahomaTrackerImageLabels
+  batch_size: 25
+
+# S3 Configuration
+s3:
+  bucket: tahoma-tracker-artifacts
+  cropped_images_prefix: needle-cam/cropped-images
+  models_prefix: models
+  analysis_prefix: analysis
+  
+# Training Configuration
+training:
+  frame_state_model_version: 1  # increment for each new frame state model
+  visibility_model_version: 1   # increment for each new visibility model
+  epochs: 8
+  batch_size: 32
+  learning_rate: 0.001
+  train_split: 0.8  # 80% train, 20% validation
+  random_seed: 42
+  num_workers: 0  # Disabled due to boto3 pickle issues
+  
+# Performance notes:
+# - Training on CPU with ResNet50 takes ~5 seconds per batch
+# - Full 50 epochs will take several hours on CPU
+# - Apple Metal (MPS) GPU provides 10-50x speedup on M1/M2/M3 Macs
+# - Consider reducing epochs to 8-10 for initial testing
+  
+# Image Configuration
+image:
+  # ResNet50 standard input size is 224x224.
+  # While source images may be larger (e.g. 600x450), resizing to 224x224
+  # is standard for transfer learning and keeps training efficient.
+  width: 224
+  height: 224
+  # Normalization values - update after analyzing POC dataset statistics
+  normalization:
+    mean: [0.485, 0.456, 0.406]  # ImageNet defaults; update for your dataset
+    std: [0.229, 0.224, 0.225]   # ImageNet defaults; update for your dataset
+
+# Frame State Classification (4 classes - ALL images)
+frame_state:
+  labels:
+    - "good"
+    - "dark"
+    - "bad"
+    - "off_target"
+  label_to_index:
+    good: 0
+    dark: 1
+    bad: 2
+    off_target: 3
+
+# Visibility Classification (3 classes - ONLY "good" images)
+visibility:
+  labels:
+    - "out"
+    - "partially_out"
+    - "not_out"
+  label_to_index:
+    out: 0
+    partially_out: 1
+    not_out: 2
+
+# ONNX Export Configuration
+onnx:
+  opset_version: 14
+  do_constant_folding: true
+  # ONNX input/output node names
+  input_names: ["input_image"]
+  output_names: ["output_probability"]
+  dynamic_axes:
+    input_image: {0: "batch_size"}
+    output_probability: {0: "batch_size"}
+
+# Logging Configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Output Configuration
+output:
+  models_dir: ./models
+  logs_dir: ./logs
+  checkpoint_dir: ./checkpoints

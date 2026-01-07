@@ -1,0 +1,232 @@
+package com.tahomatracker.backfill;
+
+import com.tahomatracker.service.ScraperConfig;
+import com.tahomatracker.service.domain.CropBox;
+import com.tahomatracker.service.domain.ImageContext;
+import com.tahomatracker.service.enums.AcquisitionStatus;
+import com.tahomatracker.service.classifier.OnnxFrameStateClassifier;
+import com.tahomatracker.service.classifier.OnnxModelLoader;
+import com.tahomatracker.service.classifier.OnnxVisibilityClassifier;
+import com.tahomatracker.service.external.ObjectStorageClient;
+import com.tahomatracker.service.external.S3ObjectStorageClient;
+import com.tahomatracker.service.external.SliceFetcher;
+import com.tahomatracker.service.process.AnalysisPersistenceService;
+import com.tahomatracker.service.process.ImageAcquisitionService;
+import com.tahomatracker.service.process.ImageClassificationService;
+import com.tahomatracker.service.process.LatestImageService;
+import com.tahomatracker.service.process.PipelineRunner;
+import com.tahomatracker.service.process.TimeWindowPlanner;
+import software.amazon.awssdk.services.s3.S3Client;
+import java.nio.file.Path;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class BackfillRunner {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BackfillRunner.class);
+    private final String cameraBaseUrl;
+    private final String bucketName;
+    private final S3Client s3Client;
+    private final FastSliceFetcher fetcher;
+    private final CheckpointStore checkpoint;
+    private final String panosPrefix;
+    private final String croppedPrefix;
+    private final String analysisPrefix;
+    private final String cropBox;
+    private final ZoneId localTz;
+
+    public BackfillRunner(String cameraBaseUrl, String bucketName, S3Client s3Client, Path checkpointPath,
+                          String panosPrefix, String croppedPrefix, String analysisPrefix, String cropBox,
+                          int concurrency, int batchSize) {
+        this.cameraBaseUrl = cameraBaseUrl;
+        this.bucketName = bucketName;
+        this.s3Client = s3Client;
+        this.fetcher = new FastSliceFetcher(cameraBaseUrl, Math.max(2, concurrency), batchSize);
+        this.checkpoint = new CheckpointStore(checkpointPath);
+        this.panosPrefix = panosPrefix;
+        this.croppedPrefix = croppedPrefix;
+        this.analysisPrefix = analysisPrefix;
+        this.cropBox = cropBox;
+        this.localTz = ZoneId.of("America/Los_Angeles");
+    }
+
+    public void runRange(ZonedDateTime start, ZonedDateTime end, int stepMinutes, boolean publishLatest,
+                         boolean dryRun, int workers) {
+        int windowStart = 4;
+        int windowEnd = 23;
+        String modelsPrefix = "models";
+        String modelVersion = "v1";
+        String frameStateModelKey = modelsPrefix + "/" + modelVersion + "/frame_state_" + modelVersion + ".onnx";
+        String visibilityModelKey = modelsPrefix + "/" + modelVersion + "/visibility_" + modelVersion + ".onnx";
+        float[] mean = new float[]{0.485f, 0.456f, 0.406f};
+        float[] std = new float[]{0.229f, 0.224f, 0.225f};
+
+        ScraperConfig config = new ScraperConfig(
+                bucketName,
+                "",  // imageLabelsTableName not used in backfill
+                cameraBaseUrl,
+                panosPrefix,
+                croppedPrefix,
+                analysisPrefix,
+                "latest/latest.json",
+                CropBox.fromString(cropBox),
+                0.85,
+                modelVersion,
+                localTz,
+                windowStart,
+                windowEnd,
+                stepMinutes,
+                24 * 365, // backfill lookback not really used here
+                modelsPrefix,
+                frameStateModelKey,
+                visibilityModelKey,
+                224,
+                224,
+                mean,
+                std
+        );
+
+        ObjectStorageClient s3Store = new S3ObjectStorageClient(s3Client, bucketName);
+        SliceFetcher sliceFetcher = fetcher;
+        var modelLoader = new com.tahomatracker.service.classifier.OnnxModelLoader(s3Client, bucketName);
+        var frameStateClassifier = new com.tahomatracker.service.classifier.OnnxFrameStateClassifier(
+                modelLoader,
+                config.frameStateModelKey,
+                config.modelInputWidth,
+                config.modelInputHeight,
+                config.normalizationMean,
+                config.normalizationStd
+        );
+        var visibilityClassifier = new com.tahomatracker.service.classifier.OnnxVisibilityClassifier(
+                modelLoader,
+                config.visibilityModelKey,
+                config.modelInputWidth,
+                config.modelInputHeight,
+                config.normalizationMean,
+                config.normalizationStd
+        );
+
+        ImageAcquisitionService imageAcquisition = new ImageAcquisitionService(
+                sliceFetcher, s3Store, panosPrefix, croppedPrefix);
+        ImageClassificationService classification = new ImageClassificationService(
+                frameStateClassifier, visibilityClassifier, s3Store);
+        AnalysisPersistenceService persistence = new AnalysisPersistenceService(s3Store, analysisPrefix, modelVersion);
+        var timeWindow = new TimeWindowPlanner(config);
+        var latestService = new LatestImageService(s3Store, config.latestKey);
+        PipelineRunner runner = new PipelineRunner(config, timeWindow, latestService, imageAcquisition,
+                classification, persistence, s3Store);
+
+        if (dryRun) {
+            ZonedDateTime ts = start;
+            while (!ts.isAfter(end)) {
+                ZonedDateTime local = ts.withZoneSameInstant(localTz);
+                if (!(local.getHour() >= windowStart && local.getHour() < windowEnd)) {
+                    log.debug("Skipping outside window: {} (local {})", ts, local);
+                    ts = ts.plusMinutes(stepMinutes);
+                    continue;
+                }
+                log.info("DRY RUN: {}", ts.toInstant());
+                ts = ts.plusMinutes(stepMinutes);
+            }
+            return;
+        }
+
+        int workerCount = Math.max(1, workers);
+        ExecutorService pool = Executors.newFixedThreadPool(workerCount);
+        CompletionService<Void> completion = new ExecutorCompletionService<>(pool);
+        int submitted = 0;
+
+        try {
+            ZonedDateTime ts = start;
+            while (!ts.isAfter(end)) {
+                ZonedDateTime current = ts;
+                completion.submit(() -> {
+                    processTimestamp(runner, current, publishLatest);
+                    return null;
+                });
+                submitted++;
+                ts = ts.plusMinutes(stepMinutes);
+            }
+
+            for (int i = 0; i < submitted; i++) {
+                try {
+                    completion.take().get();
+                } catch (ExecutionException ex) {
+                    log.error("Worker failed", ex.getCause());
+                }
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        } finally {
+            pool.shutdown();
+        }
+    }
+
+    private void processTimestamp(PipelineRunner runner, ZonedDateTime tsUtc, boolean publishLatest) {
+        String tsIso = tsUtc.toInstant().toString();
+        try {
+            ImageContext ctx = runner.processSingle(tsUtc, publishLatest);
+            if (ctx == null) {
+                log.info("Skipped {} (already processed or outside window)", tsIso);
+                checkpoint.markOk(tsIso); // already processed or outside window
+                return;
+            }
+            if (ctx.getStatus() == AcquisitionStatus.OK) {
+                log.info("Completed {} (status OK)", tsIso);
+                checkpoint.markOk(tsIso);
+            } else {
+                log.warn("Completed {} with non-OK status: {}", tsIso, ctx.getStatus());
+                checkpoint.markError(tsIso, "status=" + ctx.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("Error processing {}: {}", tsIso, e.getMessage(), e);
+            checkpoint.markError(tsIso, e.getMessage());
+        }
+    }
+
+    // Simple CLI runner
+    public static void main(String[] args) {
+        if (args.length == 0) {
+            log.error("Usage: BackfillRunner --start <ISO> --end <ISO> --bucket <bucket> " +
+                    "[--publish-latest] [--dry-run] [--concurrency <n>] [--batch-size <n>] [--workers <n>]");
+            System.exit(2);
+        }
+        String start = null, end = null, bucket = null;
+        boolean publish = false;
+        boolean dryRun = false;
+        int concurrency = 8;
+        int batchSize = 32;
+        int workers = 1;
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "--start": start = args[++i]; break;
+                case "--end": end = args[++i]; break;
+                case "--bucket": bucket = args[++i]; break;
+                case "--publish-latest": publish = true; break;
+                case "--dry-run": dryRun = true; break;
+                case "--concurrency": concurrency = Integer.parseInt(args[++i]); break;
+                case "--batch-size": batchSize = Integer.parseInt(args[++i]); break;
+                case "--workers": workers = Integer.parseInt(args[++i]); break;
+                default:
+                    log.error("Unknown arg: {}", args[i]);
+                    System.exit(2);
+            }
+        }
+        if (start == null || end == null || bucket == null) {
+            log.error("--start, --end and --bucket are required");
+            System.exit(2);
+        }
+        ZonedDateTime s = ZonedDateTime.parse(start);
+        ZonedDateTime e = ZonedDateTime.parse(end);
+        S3Client s3 = S3Client.create();
+        Path checkpoint = Path.of("backfill-checkpoint.json");
+        BackfillRunner runner = new BackfillRunner("https://d3omclagh7m7mg.cloudfront.net/assets", bucket, s3, checkpoint,
+                "needle-cam/panos", "needle-cam/cropped-images", "analysis", "3975,200,4575,650",
+                concurrency, batchSize);
+        runner.runRange(s, e, 10, publish, dryRun, workers);
+    }
+}

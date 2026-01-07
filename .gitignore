@@ -6,8 +6,11 @@ target
 .settings
 .vscode
 *.iml
+AGENTS.md
+CLAUDE.md
+.github/copilot-instructions.md
 
 # CDK asset staging directory
 .cdk.staging
 cdk.out
-
+src/test/output/
