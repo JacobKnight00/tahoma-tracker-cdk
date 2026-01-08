@@ -1,6 +1,7 @@
 package com.tahomatracker.service.process;
 
 import com.tahomatracker.service.domain.ImageContext;
+import com.tahomatracker.service.domain.ImageId;
 import com.tahomatracker.service.external.ObjectStorageClient;
 
 import java.io.IOException;
@@ -26,11 +27,11 @@ public class AnalysisPersistenceService {
      * Persists analysis results to S3 as JSON.
      *
      * @param context The image context containing all analysis data
-     * @param keyBase The key base in format yyyy/MM/dd/HHmm
+     * @param imageId The image identifier for this analysis
      * @return The S3 key of the persisted analysis JSON
      */
-    public String persistAnalysis(ImageContext context, String keyBase) throws IOException {
-        String analysisKey = formatAnalysisKey(keyBase);
+    public String persistAnalysis(ImageContext context, ImageId imageId) throws IOException {
+        String analysisKey = formatAnalysisKey(imageId);
 
         Map<String, Object> analysis = new HashMap<>();
         analysis.put("image_id", context.getImageId());
@@ -49,12 +50,12 @@ public class AnalysisPersistenceService {
 
     /**
      * Formats the S3 key for an analysis JSON file.
-     * Format: {analysisPrefix}/{modelVersion}/{keyBase}.json
+     * Format: {analysisPrefix}/{modelVersion}/{imageId}.json
      *
-     * @param keyBase The key base in format yyyy/MM/dd/HHmm
+     * @param imageId The image identifier for this analysis
      * @return The full S3 key
      */
-    public String formatAnalysisKey(String keyBase) {
-        return analysisPrefix + "/" + modelVersion + "/" + keyBase + ".json";
+    public String formatAnalysisKey(ImageId imageId) {
+        return analysisPrefix + "/" + modelVersion + "/" + imageId.getValue() + ".json";
     }
 }

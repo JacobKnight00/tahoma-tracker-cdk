@@ -45,12 +45,12 @@ class LatestImageServiceTest {
         InMemoryStorage storage = new InMemoryStorage();
         String key = "latest/latest.json";
         storage.putJson(key, Map.of("image_id", "2026/01/03/2010"));
-        LatestImageService latest = new LatestImageService(storage, key);
+        LatestImageService latest = new LatestImageService(storage, key, java.time.ZoneId.of("America/Los_Angeles"));
 
         Optional<java.time.ZonedDateTime> ts = latest.resolveLatestTimestamp();
 
         assertTrue(ts.isPresent());
-        assertEquals(OffsetDateTime.parse("2026-01-03T20:10:00Z").toZonedDateTime(), ts.get());
+        assertEquals(OffsetDateTime.parse("2026-01-04T04:10:00Z").toZonedDateTime(), ts.get());
     }
 
     @Test
@@ -58,19 +58,19 @@ class LatestImageServiceTest {
         InMemoryStorage storage = new InMemoryStorage();
         String key = "latest/latest.json";
         storage.putJson(key, Map.of("analysis_s3_key", "analysis/v1/2026/01/03/2010.json"));
-        LatestImageService latest = new LatestImageService(storage, key);
+        LatestImageService latest = new LatestImageService(storage, key, java.time.ZoneId.of("America/Los_Angeles"));
 
         Optional<java.time.ZonedDateTime> ts = latest.resolveLatestTimestamp();
 
         assertTrue(ts.isPresent());
-        assertEquals(OffsetDateTime.parse("2026-01-03T20:10:00Z").toZonedDateTime(), ts.get());
+        assertEquals(OffsetDateTime.parse("2026-01-04T04:10:00Z").toZonedDateTime(), ts.get());
     }
 
     @Test
     void publishIfNew_writesWhenNewer_andSkipsWhenOlder() throws Exception {
         InMemoryStorage storage = new InMemoryStorage();
         String key = "latest/latest.json";
-        LatestImageService latest = new LatestImageService(storage, key);
+        LatestImageService latest = new LatestImageService(storage, key, java.time.ZoneId.of("America/Los_Angeles"));
 
         ImageContext ctxNew = new ImageContext();
         ctxNew.setImageId("2026/01/03/2010");

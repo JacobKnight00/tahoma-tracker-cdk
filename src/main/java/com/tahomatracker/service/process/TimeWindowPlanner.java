@@ -1,6 +1,7 @@
 package com.tahomatracker.service.process;
 
 import com.tahomatracker.service.ScraperConfig;
+import com.tahomatracker.service.domain.ImageId;
 
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
@@ -70,6 +71,13 @@ public class TimeWindowPlanner {
 
     public String keyBase(ZonedDateTime tsLocal) {
         return KEY_FORMAT.format(tsLocal);
+    }
+
+    /**
+     * Returns an ImageId for the given local bucket start.
+     */
+    public ImageId imageId(ZonedDateTime tsLocal) {
+        return ImageId.fromZonedDateTime(tsLocal);
     }
 
     public String formatKey(String prefix, ZonedDateTime tsLocal, String ext) {

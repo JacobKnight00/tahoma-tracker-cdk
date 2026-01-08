@@ -4,6 +4,7 @@ import com.tahomatracker.service.ScraperConfig;
 import com.tahomatracker.service.domain.AcquisitionResult;
 import com.tahomatracker.service.domain.ClassificationResult;
 import com.tahomatracker.service.domain.ImageContext;
+import com.tahomatracker.service.domain.ImageId;
 import com.tahomatracker.service.enums.AcquisitionStatus;
 import com.tahomatracker.service.external.ObjectStorageClient;
 import com.amazonaws.services.lambda.runtime.Context;
@@ -19,10 +20,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 
 /**
- * Coordinates backfill runs and per-bucket processing.
+ * Orchestrates webcam image scraping: fetch, stitch, classify, and persist.
+ *
+ * Handles both scheduled runs (with automatic backfill) and single-image processing.
  */
 @Slf4j
-public class PipelineRunner {
+public class ImageScrapingService {
 
     private final ScraperConfig config;
     private final TimeWindowPlanner timeWindow;
@@ -32,13 +35,13 @@ public class PipelineRunner {
     private final AnalysisPersistenceService persistence;
     private final ObjectStorageClient storage;
 
-    public PipelineRunner(ScraperConfig config,
-                          TimeWindowPlanner timeWindow,
-                          LatestImageService latestService,
-                          ImageAcquisitionService imageAcquisition,
-                          ImageClassificationService classification,
-                          AnalysisPersistenceService persistence,
-                          ObjectStorageClient storage) {
+    public ImageScrapingService(ScraperConfig config,
+                                TimeWindowPlanner timeWindow,
+                                LatestImageService latestService,
+                                ImageAcquisitionService imageAcquisition,
+                                ImageClassificationService classification,
+                                AnalysisPersistenceService persistence,
+                                ObjectStorageClient storage) {
         this.config = config;
         this.timeWindow = timeWindow;
         this.latestService = latestService;
@@ -62,7 +65,7 @@ public class PipelineRunner {
                     lastSuccessful, now, config.windowStartHour, config.windowEndHour, config.stepMinutes);
         } else {
             String candidateList = candidates.stream()
-                    .map(ts -> timeWindow.keyBase(timeWindow.bucketStartLocal(ts)))
+                    .map(ts -> timeWindow.imageId(timeWindow.bucketStartLocal(ts)).getValue())
                     .limit(10)
                     .reduce((a, b) -> a + ", " + b)
                     .orElse("");
@@ -82,34 +85,35 @@ public class PipelineRunner {
             }
 
             ZonedDateTime local = timeWindow.bucketStartLocal(ts);
-            String keyBase = timeWindow.keyBase(local);
+            var imageId = timeWindow.imageId(local);
+            String imageIdValue = imageId.getValue();
 
-            try (var ignoredKey = MDC.putCloseable("image_key_base", keyBase)) {
-                if (analysisExists(local)) {
-                    log.debug("Skip {}: analysis already exists", keyBase);
+            try (var ignoredKey = MDC.putCloseable("image_id", imageIdValue)) {
+                if (analysisExists(imageId)) {
+                    log.debug("Skip {}: analysis already exists", imageIdValue);
                     skipped++;
                     continue;
                 }
 
                 if (!timeWindow.withinWindow(local)) {
-                    log.debug("Skip {}: outside window (hour={})", keyBase, local.getHour());
+                    log.debug("Skip {}: outside window (hour={})", imageIdValue, local.getHour());
                     skipped++;
                     continue;
                 }
 
-                log.info("Processing {}", keyBase);
+                log.info("Processing {}", imageIdValue);
                 try {
-                    ImageContext result = processBucket(local, keyBase);
+                    ImageContext result = processBucket(local, imageId);
                     if (result != null && result.getStatus() == AcquisitionStatus.OK) {
                         mostRecent = result;
                         processed++;
                         log.info("Success {}: visibility={}, frameState={}",
-                                keyBase, result.getVisibility(), result.getFrameState());
+                                imageIdValue, result.getVisibility(), result.getFrameState());
                     } else if (result != null) {
-                        log.warn("Skip {}: {}", keyBase, result.getStatus());
+                        log.warn("Skip {}: {}", imageIdValue, result.getStatus());
                     }
                 } catch (Exception ex) {
-                    log.error("Failed {}: {}", keyBase, ex.getMessage(), ex);
+                    log.error("Failed {}: {}", imageIdValue, ex.getMessage(), ex);
                 }
             }
         }
@@ -127,8 +131,7 @@ public class PipelineRunner {
 
         if (processed > 0) {
             log.info("Pipeline complete: processed={}, skipped={}, latest={}",
-                    processed, skipped, mostRecent != null ? timeWindow.keyBase(timeWindow.bucketStartLocal(
-                            java.time.OffsetDateTime.parse(timeWindow.isoTimestampForKeyBase(mostRecent.getImageId())).toZonedDateTime())) : "none");
+                    processed, skipped, mostRecent != null ? mostRecent.getImageId() : "none");
         } else {
             log.info("Pipeline complete: no new images processed (checked={}, skipped={})",
                     candidates.size(), skipped);
@@ -136,9 +139,10 @@ public class PipelineRunner {
         return summary;
     }
 
-    private ImageContext processBucket(ZonedDateTime tsLocal, String keyBase) throws IOException, InterruptedException {
+    private ImageContext processBucket(ZonedDateTime tsLocal, ImageId imageId) throws IOException, InterruptedException {
+        String keyBase = imageId.getValue();
         String folder = timeWindow.folderPath(tsLocal);
-        ImageContext context = buildContext(tsLocal, keyBase);
+        ImageContext context = buildContext(tsLocal, imageId);
 
         // Step 1: Acquire images (fetch, stitch, crop, upload)
         var panoResult = imageAcquisition.fetchAndStitchPano(folder);
@@ -164,7 +168,7 @@ public class PipelineRunner {
         context.setVisibilityProbabilities(toStringMap(classResult.getVisibilityProbabilities()));
 
         // Step 3: Persist
-        String analysisKey = persistence.persistAnalysis(context, keyBase);
+        String analysisKey = persistence.persistAnalysis(context, imageId);
         context.setAnalysisS3Key(analysisKey);
 
         return context;
@@ -185,15 +189,16 @@ public class PipelineRunner {
             return null;
         }
 
-        String keyBase = timeWindow.keyBase(local);
+        var imageId = timeWindow.imageId(local);
+        String imageIdValue = imageId.getValue();
 
-        try (var ignoredKey = MDC.putCloseable("image_key_base", keyBase)) {
-            if (analysisExists(local)) {
+        try (var ignoredKey = MDC.putCloseable("image_id", imageIdValue)) {
+            if (analysisExists(imageId)) {
                 log.info("Skipping {} (analysis exists) in processSingle", tsUtc);
                 return null;
             }
 
-            ImageContext result = processBucket(local, keyBase);
+            ImageContext result = processBucket(local, imageId);
             if (publishLatest && result != null && result.getStatus() == AcquisitionStatus.OK) {
                 result.setUpdatedAt(isoformat(Instant.now()));
                 latestService.publishIfNew(result);
@@ -202,9 +207,8 @@ public class PipelineRunner {
         }
     }
 
-    private boolean analysisExists(ZonedDateTime tsLocal) {
-        String keyBase = timeWindow.keyBase(tsLocal);
-        String key = persistence.formatAnalysisKey(keyBase);
+    private boolean analysisExists(ImageId imageId) {
+        String key = persistence.formatAnalysisKey(imageId);
         try {
             return storage.exists(key);
         } catch (IOException ex) {
@@ -212,9 +216,9 @@ public class PipelineRunner {
         }
     }
 
-    private ImageContext buildContext(ZonedDateTime local, String keyBase) {
+    private ImageContext buildContext(ZonedDateTime local, ImageId imageId) {
         ImageContext context = new ImageContext();
-        context.setImageId(keyBase);
+        context.setImageId(imageId.getValue());
         context.setCropBox(config.cropBox);
         context.setFrameStateModelVersion(config.modelVersion);
         context.setVisibilityModelVersion(config.modelVersion);

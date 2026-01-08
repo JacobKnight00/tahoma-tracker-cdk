@@ -11,6 +11,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbIgnore;
 
 /**
  * Represents crowdsourced vote counts for label classification.
@@ -26,6 +28,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@DynamoDbBean
 public class VoteCounts {
 
     /**
@@ -72,6 +75,7 @@ public class VoteCounts {
     /**
      * Returns the most common FrameState vote, or null if no votes.
      */
+    @DynamoDbIgnore
     public FrameState getMostCommonFrameState() {
         if (frameState == null || frameState.isEmpty()) {
             return null;
@@ -85,6 +89,7 @@ public class VoteCounts {
     /**
      * Returns the most common Visibility vote, or null if no votes.
      */
+    @DynamoDbIgnore
     public Visibility getMostCommonVisibility() {
         if (visibility == null || visibility.isEmpty()) {
             return null;
@@ -98,6 +103,7 @@ public class VoteCounts {
     /**
      * Returns read-only view of frame state votes.
      */
+    @DynamoDbIgnore
     public Map<String, Integer> getFrameStateVotes() {
         return frameState == null ? Collections.emptyMap() : Collections.unmodifiableMap(frameState);
     }
@@ -105,6 +111,7 @@ public class VoteCounts {
     /**
      * Returns read-only view of visibility votes.
      */
+    @DynamoDbIgnore
     public Map<String, Integer> getVisibilityVotes() {
         return visibility == null ? Collections.emptyMap() : Collections.unmodifiableMap(visibility);
     }

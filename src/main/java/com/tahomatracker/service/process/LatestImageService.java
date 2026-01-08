@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Optional;
 import java.util.Map;
@@ -19,11 +20,13 @@ import java.util.Map;
 public class LatestImageService {
     private final ObjectStorageClient storage;
     private final String latestKey;
+    private final ZoneId localTz;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public LatestImageService(ObjectStorageClient storage, String latestKey) {
+    public LatestImageService(ObjectStorageClient storage, String latestKey, ZoneId localTz) {
         this.storage = storage;
         this.latestKey = latestKey;
+        this.localTz = localTz;
     }
 
     public Optional<LatestSnapshot> readLatest() {
@@ -86,10 +89,9 @@ public class LatestImageService {
             if (imageId == null || imageId.isBlank()) {
                 return null;
             }
-            return java.time.LocalDateTime.parse(
-                    imageId,
-                    java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd/HHmm")
-            ).atZone(java.time.ZoneOffset.UTC);
+            return com.tahomatracker.service.domain.ImageId.parse(imageId)
+                    .toInstant(localTz)
+                    .atZone(java.time.ZoneOffset.UTC);
         } catch (Exception ignored) {
             return null;
         }

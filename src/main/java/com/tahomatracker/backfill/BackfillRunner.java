@@ -14,7 +14,7 @@ import com.tahomatracker.service.process.AnalysisPersistenceService;
 import com.tahomatracker.service.process.ImageAcquisitionService;
 import com.tahomatracker.service.process.ImageClassificationService;
 import com.tahomatracker.service.process.LatestImageService;
-import com.tahomatracker.service.process.PipelineRunner;
+import com.tahomatracker.service.process.ImageScrapingService;
 import com.tahomatracker.service.process.TimeWindowPlanner;
 import software.amazon.awssdk.services.s3.S3Client;
 import java.nio.file.Path;
@@ -116,8 +116,8 @@ public class BackfillRunner {
                 frameStateClassifier, visibilityClassifier, s3Store);
         AnalysisPersistenceService persistence = new AnalysisPersistenceService(s3Store, analysisPrefix, modelVersion);
         var timeWindow = new TimeWindowPlanner(config);
-        var latestService = new LatestImageService(s3Store, config.latestKey);
-        PipelineRunner runner = new PipelineRunner(config, timeWindow, latestService, imageAcquisition,
+        var latestService = new LatestImageService(s3Store, config.latestKey, config.localTz);
+        ImageScrapingService scrapingService = new ImageScrapingService(config, timeWindow, latestService, imageAcquisition,
                 classification, persistence, s3Store);
 
         if (dryRun) {
@@ -145,7 +145,7 @@ public class BackfillRunner {
             while (!ts.isAfter(end)) {
                 ZonedDateTime current = ts;
                 completion.submit(() -> {
-                    processTimestamp(runner, current, publishLatest);
+                    processTimestamp(scrapingService, current, publishLatest);
                     return null;
                 });
                 submitted++;
@@ -166,10 +166,10 @@ public class BackfillRunner {
         }
     }
 
-    private void processTimestamp(PipelineRunner runner, ZonedDateTime tsUtc, boolean publishLatest) {
+    private void processTimestamp(ImageScrapingService scrapingService, ZonedDateTime tsUtc, boolean publishLatest) {
         String tsIso = tsUtc.toInstant().toString();
         try {
-            ImageContext ctx = runner.processSingle(tsUtc, publishLatest);
+            ImageContext ctx = scrapingService.processSingle(tsUtc, publishLatest);
             if (ctx == null) {
                 log.info("Skipped {} (already processed or outside window)", tsIso);
                 checkpoint.markOk(tsIso); // already processed or outside window

@@ -7,6 +7,7 @@ import com.tahomatracker.service.classifier.OnnxVisibilityClassifier;
 import com.tahomatracker.service.domain.ClassificationResult;
 import com.tahomatracker.service.domain.CropBox;
 import com.tahomatracker.service.domain.ImageContext;
+import com.tahomatracker.service.domain.ImageId;
 import com.tahomatracker.service.enums.FrameState;
 import com.tahomatracker.service.enums.Visibility;
 import com.tahomatracker.service.external.ObjectStorageClient;
@@ -176,10 +177,12 @@ public class ClassificationBackfillRunner {
                                                        AnalysisPersistenceService persistence,
                                                        boolean dryRun) throws IOException {
         ClassificationBackfillResult result = new ClassificationBackfillResult();
-        result.imageId = imageId;
+        ImageId id = ImageId.parse(imageId);
+        String idValue = id.getValue();
+        result.imageId = idValue;
 
-        String croppedKey = croppedPrefix + "/" + imageId + ".jpg";
-        String panoKey = panosPrefix + "/" + imageId + ".jpg";
+        String croppedKey = croppedPrefix + "/" + idValue + ".jpg";
+        String panoKey = panosPrefix + "/" + idValue + ".jpg";
 
         // Check if cropped image exists
         if (!s3Store.exists(croppedKey)) {
@@ -193,13 +196,13 @@ public class ClassificationBackfillRunner {
         result.classificationResult = classResult;
 
         if (dryRun) {
-            result.analysisKey = persistence.formatAnalysisKey(imageId) + " (dry run)";
+            result.analysisKey = persistence.formatAnalysisKey(id) + " (dry run)";
             return result;
         }
 
         // Build ImageContext and persist
         ImageContext context = new ImageContext();
-        context.setImageId(imageId);
+        context.setImageId(idValue);
         context.setCroppedS3Key(croppedKey);
         context.setPanoS3Key(panoKey);
         context.setFrameState(classResult.getFrameState());
@@ -212,7 +215,7 @@ public class ClassificationBackfillRunner {
         context.setVisibilityModelVersion(modelVersion);
         context.setUpdatedAt(Instant.now().toString());
 
-        result.analysisKey = persistence.persistAnalysis(context, imageId);
+        result.analysisKey = persistence.persistAnalysis(context, id);
         return result;
     }
 
@@ -225,10 +228,7 @@ public class ClassificationBackfillRunner {
         while (!ts.isAfter(end)) {
             ZonedDateTime local = ts.withZoneSameInstant(localTz);
             if (local.getHour() >= windowStart && local.getHour() < windowEnd) {
-                String imageId = String.format("%04d/%02d/%02d/%02d%02d",
-                        local.getYear(), local.getMonthValue(), local.getDayOfMonth(),
-                        local.getHour(), local.getMinute());
-                ids.add(imageId);
+                ids.add(ImageId.fromZonedDateTime(local).getValue());
             }
             ts = ts.plusMinutes(stepMinutes);
         }

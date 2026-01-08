@@ -1,5 +1,10 @@
 package com.tahomatracker.service.domain;
 
+import java.time.format.DateTimeFormatter;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
 
 import lombok.EqualsAndHashCode;
@@ -18,6 +23,7 @@ import lombok.EqualsAndHashCode;
 public class ImageId {
 
     private static final Pattern IMAGE_ID_PATTERN = Pattern.compile("^\\d{4}/\\d{2}/\\d{2}/\\d{4}$");
+    private static final DateTimeFormatter IMAGE_ID_FORMATTER = DateTimeFormatter.ofPattern("yyyy/MM/dd/HHmm");
 
     private final String value;
 
@@ -103,35 +109,38 @@ public class ImageId {
     }
 
     /**
-     * Converts this ImageId to ISO 8601 timestamp.
-     * Example: "2024/12/23/0400" -> "2024-12-23T04:00:00Z"
+     * Converts this ImageId (interpreted in the provided local timezone) to an ISO-8601 UTC timestamp.
      */
-    public String toIsoTimestamp() {
-        String[] parts = getParts();
-        String hhmm = parts[3];
-        String hour = hhmm.substring(0, 2);
-        String minute = hhmm.substring(2, 4);
-        return String.format("%s-%s-%sT%s:%s:00Z", parts[0], parts[1], parts[2], hour, minute);
+    public String toIsoTimestampUtc(ZoneId localTz) {
+        return DateTimeFormatter.ISO_INSTANT.format(toInstant(localTz));
     }
 
     /**
-     * Creates an ImageId from ISO 8601 timestamp.
-     * Example: "2024-12-23T04:00:00Z" -> "2024/12/23/0400"
-     *
-     * @param isoTimestamp ISO 8601 timestamp string
-     * @return the ImageId
-     * @throws IllegalArgumentException if timestamp format is invalid
+     * Converts this ImageId to a ZonedDateTime in the provided local timezone.
      */
-    public static ImageId fromIsoTimestamp(String isoTimestamp) {
-        if (isoTimestamp == null || isoTimestamp.length() < 16) {
-            throw new IllegalArgumentException("Invalid ISO timestamp: " + isoTimestamp);
-        }
-        // Format: YYYY-MM-DDTHH:MM:SS...
-        String year = isoTimestamp.substring(0, 4);
-        String month = isoTimestamp.substring(5, 7);
-        String day = isoTimestamp.substring(8, 10);
-        String hour = isoTimestamp.substring(11, 13);
-        String minute = isoTimestamp.substring(14, 16);
-        return parse(String.format("%s/%s/%s/%s%s", year, month, day, hour, minute));
+    public ZonedDateTime toZonedDateTime(ZoneId localTz) {
+        LocalDateTime local = LocalDateTime.parse(value, IMAGE_ID_FORMATTER);
+        return local.atZone(localTz);
+    }
+
+    /**
+     * Converts this ImageId (interpreted in the provided local timezone) to an Instant in UTC.
+     */
+    public Instant toInstant(ZoneId localTz) {
+        return toZonedDateTime(localTz).toInstant();
+    }
+
+    /**
+     * Creates an ImageId from a local ZonedDateTime.
+     */
+    public static ImageId fromZonedDateTime(ZonedDateTime localTs) {
+        return parse(IMAGE_ID_FORMATTER.format(localTs));
+    }
+
+    /**
+     * Creates an ImageId from a UTC ZonedDateTime by converting to the provided local timezone.
+     */
+    public static ImageId fromUtc(ZonedDateTime utcTs, ZoneId localTz) {
+        return fromZonedDateTime(utcTs.withZoneSameInstant(localTz));
     }
 }

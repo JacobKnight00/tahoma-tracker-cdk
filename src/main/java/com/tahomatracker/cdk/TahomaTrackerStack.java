@@ -1,5 +1,6 @@
 package com.tahomatracker.cdk;
 
+import java.util.List;
 import java.util.Map;
 import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.RemovalPolicy;
@@ -19,6 +20,11 @@ import software.amazon.awscdk.services.events.CronOptions;
 import software.amazon.awscdk.services.events.targets.LambdaFunction;
 import software.amazon.awscdk.services.lambda.Code;
 import software.amazon.awscdk.services.lambda.Function;
+import software.amazon.awscdk.services.lambda.FunctionUrl;
+import software.amazon.awscdk.services.lambda.FunctionUrlAuthType;
+import software.amazon.awscdk.services.lambda.FunctionUrlCorsOptions;
+import software.amazon.awscdk.services.lambda.FunctionUrlOptions;
+import software.amazon.awscdk.services.lambda.HttpMethod;
 import software.amazon.awscdk.services.lambda.Architecture;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.CfnOutput;
@@ -130,6 +136,54 @@ public class TahomaTrackerStack extends Stack {
         labelsTable.grantReadWriteData(pipelineFn);
         bucket.grantReadWrite(pipelineFn);
 
+        // Label API Lambda - handles crowdsource label submissions
+        // Uses Function URL for direct HTTP access (no API Gateway costs)
+        List<String> labelApiAllowedOrigins = List.of(
+                "https://tahomatracker.com",
+                "https://tahoma-tracker-site.pages.dev",
+                "http://localhost:8080",
+                "http://localhost:8081",
+                "http://localhost:8082",
+                "http://localhost:8083",
+                "http://localhost:8084",
+                "http://localhost:8085",
+                "http://localhost:8086",
+                "http://localhost:8087",
+                "http://localhost:8088",
+                "http://localhost:8089",
+                "http://localhost:8090"
+        );
+
+        Function labelApiFn = Function.Builder.create(this, "LabelApiFunction")
+                .runtime(Runtime.JAVA_21)
+                .architecture(Architecture.X86_64)
+                .handler("com.tahomatracker.labelapi.LabelApiHandler::handleRequest")
+                .code(Code.fromAsset("target/tahomacdk-0.1.jar"))
+                .memorySize(512)
+                .timeout(Duration.seconds(30))
+                .environment(Map.ofEntries(
+                        Map.entry("BUCKET_NAME", bucket.getBucketName()),
+                        Map.entry("IMAGE_LABELS_TABLE_NAME", labelsTable.getTableName()),
+                        Map.entry("ANALYSIS_PREFIX", "analysis"),
+                        Map.entry("MODEL_VERSION", "v1"),
+                        Map.entry("ALLOWED_ORIGINS", String.join(",", labelApiAllowedOrigins))
+                ))
+                .build();
+
+        labelsTable.grantReadWriteData(labelApiFn);
+        bucket.grantRead(labelApiFn);
+
+        // Function URL with CORS for public access
+        FunctionUrl labelApiUrl = labelApiFn.addFunctionUrl(FunctionUrlOptions.builder()
+                .authType(FunctionUrlAuthType.NONE)
+                .cors(FunctionUrlCorsOptions.builder()
+                        .allowedOrigins(labelApiAllowedOrigins)
+                        .allowedMethods(java.util.List.of(HttpMethod.POST))
+                        .allowedHeaders(java.util.List.of("content-type", "authorization"))
+                        .maxAge(Duration.hours(1))
+                        .build())
+                .build());
+
         // EventBridge Rule: Trigger Lambda every 2 minutes with automatic backfill
         Rule.Builder.create(this, "ProcessingSchedule")
                 .description("Triggers Lambda every 2 minutes for image processing with automatic backfill")
@@ -198,6 +252,12 @@ public class TahomaTrackerStack extends Stack {
                 .value(bucket.getBucketName())
                 .description("S3 bucket name")
                 .exportName("TahomaTrackerBucketName")
+                .build();
+
+        CfnOutput.Builder.create(this, "LabelApiUrl")
+                .value(labelApiUrl.getUrl())
+                .description("Label API Function URL for crowdsource label submissions")
+                .exportName("TahomaTrackerLabelApiUrl")
                 .build();
     }
 }
