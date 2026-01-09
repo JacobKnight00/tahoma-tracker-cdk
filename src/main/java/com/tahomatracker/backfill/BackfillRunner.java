@@ -14,6 +14,7 @@ import com.tahomatracker.service.process.AnalysisPersistenceService;
 import com.tahomatracker.service.process.ImageAcquisitionService;
 import com.tahomatracker.service.process.ImageClassificationService;
 import com.tahomatracker.service.process.LatestImageService;
+import com.tahomatracker.service.process.ManifestService;
 import com.tahomatracker.service.process.ImageScrapingService;
 import com.tahomatracker.service.process.TimeWindowPlanner;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -36,12 +37,13 @@ public class BackfillRunner {
     private final String panosPrefix;
     private final String croppedPrefix;
     private final String analysisPrefix;
+    private final String manifestsPrefix;
     private final String cropBox;
     private final ZoneId localTz;
 
     public BackfillRunner(String cameraBaseUrl, String bucketName, S3Client s3Client, Path checkpointPath,
-                          String panosPrefix, String croppedPrefix, String analysisPrefix, String cropBox,
-                          int concurrency, int batchSize) {
+                          String panosPrefix, String croppedPrefix, String analysisPrefix, String manifestsPrefix,
+                          String cropBox, int concurrency, int batchSize) {
         this.cameraBaseUrl = cameraBaseUrl;
         this.bucketName = bucketName;
         this.s3Client = s3Client;
@@ -50,6 +52,7 @@ public class BackfillRunner {
         this.panosPrefix = panosPrefix;
         this.croppedPrefix = croppedPrefix;
         this.analysisPrefix = analysisPrefix;
+        this.manifestsPrefix = manifestsPrefix;
         this.cropBox = cropBox;
         this.localTz = ZoneId.of("America/Los_Angeles");
     }
@@ -73,6 +76,7 @@ public class BackfillRunner {
                 croppedPrefix,
                 analysisPrefix,
                 "latest/latest.json",
+                manifestsPrefix,
                 CropBox.fromString(cropBox),
                 0.85,
                 modelVersion,
@@ -117,8 +121,9 @@ public class BackfillRunner {
         AnalysisPersistenceService persistence = new AnalysisPersistenceService(s3Store, analysisPrefix, modelVersion);
         var timeWindow = new TimeWindowPlanner(config);
         var latestService = new LatestImageService(s3Store, config.latestKey, config.localTz);
+        var manifestService = new ManifestService(s3Store, config.manifestsPrefix, config.localTz);
         ImageScrapingService scrapingService = new ImageScrapingService(config, timeWindow, latestService, imageAcquisition,
-                classification, persistence, s3Store);
+                classification, persistence, manifestService, s3Store);
 
         if (dryRun) {
             ZonedDateTime ts = start;
@@ -225,8 +230,8 @@ public class BackfillRunner {
         S3Client s3 = S3Client.create();
         Path checkpoint = Path.of("backfill-checkpoint.json");
         BackfillRunner runner = new BackfillRunner("https://d3omclagh7m7mg.cloudfront.net/assets", bucket, s3, checkpoint,
-                "needle-cam/panos", "needle-cam/cropped-images", "analysis", "3975,200,4575,650",
-                concurrency, batchSize);
+                "needle-cam/panos", "needle-cam/cropped-images", "analysis", "manifests",
+                "3975,200,4575,650", concurrency, batchSize);
         runner.runRange(s, e, 10, publish, dryRun, workers);
     }
 }

@@ -33,6 +33,7 @@ public class ImageScrapingService {
     private final ImageAcquisitionService imageAcquisition;
     private final ImageClassificationService classification;
     private final AnalysisPersistenceService persistence;
+    private final ManifestService manifestService;
     private final ObjectStorageClient storage;
 
     public ImageScrapingService(ScraperConfig config,
@@ -41,6 +42,7 @@ public class ImageScrapingService {
                                 ImageAcquisitionService imageAcquisition,
                                 ImageClassificationService classification,
                                 AnalysisPersistenceService persistence,
+                                ManifestService manifestService,
                                 ObjectStorageClient storage) {
         this.config = config;
         this.timeWindow = timeWindow;
@@ -48,6 +50,7 @@ public class ImageScrapingService {
         this.imageAcquisition = imageAcquisition;
         this.classification = classification;
         this.persistence = persistence;
+        this.manifestService = manifestService;
         this.storage = storage;
     }
 
@@ -129,6 +132,8 @@ public class ImageScrapingService {
         summary.put("skipped", skipped);
         summary.put("last_successful", mostRecent != null ? mostRecent.getImageId() : null);
 
+        manifestService.markCurrentManifestsChecked();
+
         if (processed > 0) {
             log.info("Pipeline complete: processed={}, skipped={}, latest={}",
                     processed, skipped, mostRecent != null ? mostRecent.getImageId() : "none");
@@ -167,9 +172,12 @@ public class ImageScrapingService {
         context.setFrameStateProbabilities(toStringMap(classResult.getFrameStateProbabilities()));
         context.setVisibilityProbabilities(toStringMap(classResult.getVisibilityProbabilities()));
 
-        // Step 3: Persist
+        // Step 3: Persist analysis JSON
         String analysisKey = persistence.persistAnalysis(context, imageId);
         context.setAnalysisS3Key(analysisKey);
+
+        // Step 4: Update daily and monthly manifests
+        manifestService.updateManifests(context, imageId);
 
         return context;
     }

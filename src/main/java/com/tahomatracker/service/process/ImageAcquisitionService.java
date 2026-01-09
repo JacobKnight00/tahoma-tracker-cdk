@@ -62,8 +62,8 @@ public class ImageAcquisitionService {
         // Copy the cropped region
         cropped.createGraphics().drawImage(pano, -box.x1(), -box.y1(), null);
 
-        // Apply watermark
-        ScraperUtils.applyWatermark(cropped);
+        // Watermark intentionally disabled; re-enable if branding is required again.
+        // ScraperUtils.applyWatermark(cropped);
 
         return cropped;
     }

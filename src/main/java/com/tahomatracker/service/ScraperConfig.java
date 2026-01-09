@@ -12,6 +12,7 @@ public final class ScraperConfig {
     public final String analysisPrefix;
     public final String latestKey;
     public final String modelsPrefix;
+    public final String manifestsPrefix;
     public final String frameStateModelKey;
     public final String visibilityModelKey;
     public final int modelInputWidth;
@@ -36,6 +37,7 @@ public final class ScraperConfig {
         this.analysisPrefix = env("ANALYSIS_PREFIX", "analysis");
         this.latestKey = env("LATEST_KEY", "latest/latest.json");
         this.modelsPrefix = env("MODELS_PREFIX", "models");
+        this.manifestsPrefix = env("MANIFESTS_PREFIX", "manifests");
         this.cropBox = CropBox.fromString(env("CROP_BOX", ""));
         this.outThreshold = Double.parseDouble(env("OUT_THRESHOLD", "0.85"));
         this.modelVersion = env("MODEL_VERSION", "v1");
@@ -54,9 +56,9 @@ public final class ScraperConfig {
 
     // helper: allow tests to create config with overrides
     public ScraperConfig(String bucketName, String imageLabelsTableName, String cameraBaseUrl, String panosPrefix,
-                         String croppedPrefix, String analysisPrefix, String latestKey, CropBox cropBox,
-                         double outThreshold, String modelVersion, ZoneId localTz, int windowStartHour,
-                         int windowEndHour, int stepMinutes, int backfillLookbackHours,
+                         String croppedPrefix, String analysisPrefix, String latestKey, String manifestsPrefix,
+                         CropBox cropBox, double outThreshold, String modelVersion, ZoneId localTz,
+                         int windowStartHour, int windowEndHour, int stepMinutes, int backfillLookbackHours,
                          String modelsPrefix, String frameStateModelKey, String visibilityModelKey,
                          int modelInputWidth, int modelInputHeight,
                          float[] normalizationMean, float[] normalizationStd) {
@@ -67,6 +69,7 @@ public final class ScraperConfig {
         this.croppedPrefix = croppedPrefix;
         this.analysisPrefix = analysisPrefix;
         this.latestKey = latestKey;
+        this.manifestsPrefix = manifestsPrefix;
         this.modelsPrefix = modelsPrefix;
         this.frameStateModelKey = frameStateModelKey;
         this.visibilityModelKey = visibilityModelKey;

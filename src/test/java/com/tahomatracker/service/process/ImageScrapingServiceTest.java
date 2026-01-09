@@ -25,18 +25,19 @@ class ImageScrapingServiceTest {
         ImageAcquisitionService acquisition = mock(ImageAcquisitionService.class);
         ImageClassificationService classification = mock(ImageClassificationService.class);
         AnalysisPersistenceService persistence = mock(AnalysisPersistenceService.class);
+        ManifestService manifestService = mock(ManifestService.class);
         ObjectStorageClient storage = mock(ObjectStorageClient.class);
 
         // analysisExists() now uses persistence.formatAnalysisKey() to build the key
         when(persistence.formatAnalysisKey(any(ImageId.class))).thenReturn("analysis/v1/2026/01/06/1200.json");
         when(storage.exists(anyString())).thenReturn(true);
 
-        ImageScrapingService service = new ImageScrapingService(config, planner, latest, acquisition, classification, persistence, storage);
+        ImageScrapingService service = new ImageScrapingService(config, planner, latest, acquisition, classification, persistence, manifestService, storage);
 
         ImageContext ctx = service.processSingle(ZonedDateTime.now(ZoneId.of("UTC")), true);
 
         assertNull(ctx);
-        verifyNoInteractions(acquisition, classification, latest);
+        verifyNoInteractions(acquisition, classification, latest, manifestService);
     }
 
     @Test
@@ -47,6 +48,7 @@ class ImageScrapingServiceTest {
         ImageAcquisitionService acquisition = mock(ImageAcquisitionService.class);
         ImageClassificationService classification = mock(ImageClassificationService.class);
         AnalysisPersistenceService persistence = mock(AnalysisPersistenceService.class);
+        ManifestService manifestService = mock(ManifestService.class);
         ObjectStorageClient storage = mock(ObjectStorageClient.class);
 
         // analysisExists() uses persistence.formatAnalysisKey() to build the key
@@ -61,12 +63,13 @@ class ImageScrapingServiceTest {
         );
         when(persistence.persistAnalysis(any(), any(ImageId.class))).thenReturn("analysis/key");
 
-        ImageScrapingService service = new ImageScrapingService(config, planner, latest, acquisition, classification, persistence, storage);
+        ImageScrapingService service = new ImageScrapingService(config, planner, latest, acquisition, classification, persistence, manifestService, storage);
 
         ImageContext ctx = service.processSingle(ZonedDateTime.now(ZoneId.of("UTC")), true);
 
         assertNotNull(ctx);
         assertEquals(AcquisitionStatus.OK, ctx.getStatus());
         verify(latest, times(1)).publishIfNew(any());
+        verify(manifestService, times(1)).updateManifests(any(), any(ImageId.class));
     }
 }

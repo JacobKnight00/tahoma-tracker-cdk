@@ -17,6 +17,7 @@ import com.tahomatracker.service.process.ImageAcquisitionService;
 import com.tahomatracker.service.process.ImageClassificationService;
 import com.tahomatracker.service.process.ImageScrapingService;
 import com.tahomatracker.service.process.LatestImageService;
+import com.tahomatracker.service.process.ManifestService;
 import com.tahomatracker.service.process.TimeWindowPlanner;
 
 import dagger.Module;
@@ -128,15 +129,22 @@ public class ScraperModule {
 
     @Provides
     @Singleton
+    ManifestService provideManifestService(ObjectStorageClient storage) {
+        return new ManifestService(storage, config.manifestsPrefix, config.localTz);
+    }
+
+    @Provides
+    @Singleton
     ImageScrapingService provideImageScrapingService(
             TimeWindowPlanner timeWindow,
             LatestImageService latestService,
             ImageAcquisitionService imageAcquisition,
             ImageClassificationService classification,
             AnalysisPersistenceService persistence,
+            ManifestService manifestService,
             ObjectStorageClient storage) {
         return new ImageScrapingService(
                 config, timeWindow, latestService, imageAcquisition,
-                classification, persistence, storage);
+                classification, persistence, manifestService, storage);
     }
 }

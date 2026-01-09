@@ -129,7 +129,8 @@ public class TahomaTrackerStack extends Stack {
                                 Map.entry("WINDOW_START_HOUR", "4"),
                                 Map.entry("WINDOW_END_HOUR", "23"),
                                 Map.entry("STEP_MINUTES", "10"),
-                                Map.entry("BACKFILL_LOOKBACK_HOURS", "6")
+                                Map.entry("BACKFILL_LOOKBACK_HOURS", "6"),
+                                Map.entry("MANIFESTS_PREFIX", "manifests")
                         ))
                         .build();
 
@@ -184,6 +185,22 @@ public class TahomaTrackerStack extends Stack {
                         .build())
                 .build());
 
+        // Keep Label API function warm with a periodic OPTIONS-style invoke
+        Rule.Builder.create(this, "LabelApiWarmupSchedule")
+                .description("Keeps Label API Lambda warm with a lightweight OPTIONS invoke every 5 minutes")
+                .schedule(Schedule.rate(Duration.minutes(5)))
+                .targets(java.util.List.of(
+                        new LambdaFunction(labelApiFn,
+                                software.amazon.awscdk.services.events.targets.LambdaFunctionProps.builder()
+                                        .event(RuleTargetInput.fromObject(Map.of(
+                                                "requestContext", Map.of("http", Map.of("method", "OPTIONS")),
+                                                "body", "",
+                                                "isBase64Encoded", false
+                                        )))
+                                        .build())
+                ))
+                .build();
+
         // EventBridge Rule: Trigger Lambda every 2 minutes with automatic backfill
         Rule.Builder.create(this, "ProcessingSchedule")
                 .description("Triggers Lambda every 2 minutes for image processing with automatic backfill")
@@ -228,6 +245,16 @@ public class TahomaTrackerStack extends Stack {
                         .build())
                 .additionalBehaviors(Map.of(
                         "latest/*", BehaviorOptions.builder()
+                                .origin(origin)
+                                .viewerProtocolPolicy(ViewerProtocolPolicy.REDIRECT_TO_HTTPS)
+                                .cachePolicy(latestCachePolicy)
+                                .build(),
+                        "manifests/daily/current.json", BehaviorOptions.builder()
+                                .origin(origin)
+                                .viewerProtocolPolicy(ViewerProtocolPolicy.REDIRECT_TO_HTTPS)
+                                .cachePolicy(latestCachePolicy)
+                                .build(),
+                        "manifests/monthly/current.json", BehaviorOptions.builder()
                                 .origin(origin)
                                 .viewerProtocolPolicy(ViewerProtocolPolicy.REDIRECT_TO_HTTPS)
                                 .cachePolicy(latestCachePolicy)
