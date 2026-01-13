@@ -6,7 +6,7 @@ This script reads existing analysis JSON files from S3 and generates the manifes
 that the frontend uses for efficient batch loading.
 
 Usage:
-    python backfill_manifests.py --bucket BUCKET --start 2024-01-01 --end 2024-12-31 [--workers 4] [--dry-run]
+    python backfill_manifests.py --bucket BUCKET --start 2024-01-01 --end 2024-12-31 [--profile PROFILE] [--workers 4] [--dry-run]
 """
 
 import argparse
@@ -30,6 +30,7 @@ def parse_args():
     parser.add_argument("--start", required=True, help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end", required=True, help="End date (YYYY-MM-DD)")
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel workers (default: 4)")
+    parser.add_argument("--profile", help="AWS profile to use")
     parser.add_argument("--dry-run", action="store_true", help="Print what would be done without writing")
     return parser.parse_args()
 
@@ -60,6 +61,7 @@ def list_analysis_files_for_date(s3_client, bucket: str, year: str, month: str, 
                     analysis = {
                         "time": time_part,
                         "frame_state": get_frame_state_from_analysis(content),
+                        "frame_state_prob": get_frame_state_prob_from_analysis(content),
                         "visibility": get_visibility_from_analysis(content),
                         "visibility_prob": get_visibility_prob_from_analysis(content),
                     }
@@ -99,6 +101,15 @@ def get_visibility_prob_from_analysis(content: Dict) -> Optional[float]:
     return None
 
 
+def get_frame_state_prob_from_analysis(content: Dict) -> Optional[float]:
+    """Extract frame state probability from analysis JSON."""
+    probs = content.get("frame_state_probabilities", {})
+    frame_state = get_frame_state_from_analysis(content)
+    if frame_state and frame_state in probs:
+        return round(probs[frame_state], 4)
+    return None
+
+
 def build_daily_manifest(date_str: str, analyses: List[Dict]) -> Dict:
     """Build a daily manifest from a list of analysis entries."""
     images = []
@@ -110,6 +121,7 @@ def build_daily_manifest(date_str: str, analyses: List[Dict]) -> Dict:
         entry = {
             "time": analysis["time"],
             "frame_state": analysis["frame_state"],
+            "frame_state_prob": analysis["frame_state_prob"],
             "visibility": analysis["visibility"],
             "visibility_prob": analysis["visibility_prob"],
         }
@@ -227,12 +239,16 @@ def main():
 
     print(f"Backfilling manifests from {args.start} to {args.end}")
     print(f"Bucket: {args.bucket}")
+    if args.profile:
+        print(f"Profile: {args.profile}")
     print(f"Workers: {args.workers}")
     if args.dry_run:
         print("DRY RUN MODE - no files will be written")
     print()
 
-    s3_client = boto3.client("s3")
+    # Create S3 client with optional profile
+    session = boto3.Session(profile_name=args.profile) if args.profile else boto3.Session()
+    s3_client = session.client("s3")
 
     # Collect all dates to process
     dates = []

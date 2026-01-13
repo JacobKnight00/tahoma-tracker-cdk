@@ -93,6 +93,7 @@ public class ManifestService {
         DailyManifest.DailyManifestEntry entry = DailyManifest.DailyManifestEntry.builder()
                 .time(imageId.getTime())
                 .frameState(context.getFrameState() != null ? context.getFrameState().getValue() : null)
+                .frameStateProb(context.getFrameStateProb())
                 .visibility(context.getVisibility() != null ? context.getVisibility().getValue() : null)
                 .visibilityProb(context.getVisibilityProb())
                 .build();

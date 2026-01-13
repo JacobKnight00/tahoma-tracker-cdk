@@ -71,6 +71,11 @@ public class DailyManifest {
         private String frameState;
 
         /**
+         * Frame state probability (0.0-1.0), or null if not applicable.
+         */
+        private Double frameStateProb;
+
+        /**
          * Visibility: "out", "partially_out", "not_out", or null if frameState != "good".
          */
         private String visibility;
