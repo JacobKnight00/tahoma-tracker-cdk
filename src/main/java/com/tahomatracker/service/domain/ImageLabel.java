@@ -92,6 +92,14 @@ public class ImageLabel {
      */
     private Boolean needsReview;
 
+    /**
+     * Version of the model that this label was last used to train.
+     * Examples: "v1", "v2", etc.
+     * Null means this label has not been used in any model training yet.
+     * Used to identify new labels available for the next model training cycle.
+     */
+    private String lastModelVersion;
+
     @DynamoDbPartitionKey
     @DynamoDbSecondarySortKey(indexNames = {"ByFrameState", "ByVisibility"})
     public String getImageId() {

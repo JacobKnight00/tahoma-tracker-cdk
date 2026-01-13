@@ -1,4 +1,4 @@
-package com.tahomatracker.labelapi;
+package com.tahomatracker.service.api;
 
 import java.util.List;
 

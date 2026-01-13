@@ -1,4 +1,4 @@
-package com.tahomatracker.di;
+package com.tahomatracker.service.modules;
 
 import javax.inject.Singleton;
 

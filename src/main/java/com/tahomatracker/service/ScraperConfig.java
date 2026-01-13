@@ -10,7 +10,6 @@ public final class ScraperConfig {
     public final String panosPrefix;
     public final String croppedPrefix;
     public final String analysisPrefix;
-    public final String latestKey;
     public final String modelsPrefix;
     public final String manifestsPrefix;
     public final String frameStateModelKey;
@@ -35,7 +34,6 @@ public final class ScraperConfig {
         this.panosPrefix = env("PANOS_PREFIX", "needle-cam/panos");
         this.croppedPrefix = env("CROPPED_PREFIX", "needle-cam/cropped-images");
         this.analysisPrefix = env("ANALYSIS_PREFIX", "analysis");
-        this.latestKey = env("LATEST_KEY", "latest/latest.json");
         this.modelsPrefix = env("MODELS_PREFIX", "models");
         this.manifestsPrefix = env("MANIFESTS_PREFIX", "manifests");
         this.cropBox = CropBox.fromString(env("CROP_BOX", ""));
@@ -56,7 +54,7 @@ public final class ScraperConfig {
 
     // helper: allow tests to create config with overrides
     public ScraperConfig(String bucketName, String imageLabelsTableName, String cameraBaseUrl, String panosPrefix,
-                         String croppedPrefix, String analysisPrefix, String latestKey, String manifestsPrefix,
+                         String croppedPrefix, String analysisPrefix, String manifestsPrefix,
                          CropBox cropBox, double outThreshold, String modelVersion, ZoneId localTz,
                          int windowStartHour, int windowEndHour, int stepMinutes, int backfillLookbackHours,
                          String modelsPrefix, String frameStateModelKey, String visibilityModelKey,
@@ -68,7 +66,6 @@ public final class ScraperConfig {
         this.panosPrefix = panosPrefix;
         this.croppedPrefix = croppedPrefix;
         this.analysisPrefix = analysisPrefix;
-        this.latestKey = latestKey;
         this.manifestsPrefix = manifestsPrefix;
         this.modelsPrefix = modelsPrefix;
         this.frameStateModelKey = frameStateModelKey;

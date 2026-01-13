@@ -1,4 +1,4 @@
-package com.tahomatracker.service.process;
+package com.tahomatracker.service.scraper;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -21,7 +21,6 @@ class ImageScrapingServiceTest {
     void processSingle_skipsWhenAnalysisExists() throws Exception {
         ScraperConfig config = new ScraperConfig();
         TimeWindowPlanner planner = new TimeWindowPlanner(config);
-        LatestImageService latest = mock(LatestImageService.class);
         ImageAcquisitionService acquisition = mock(ImageAcquisitionService.class);
         ImageClassificationService classification = mock(ImageClassificationService.class);
         AnalysisPersistenceService persistence = mock(AnalysisPersistenceService.class);
@@ -32,19 +31,18 @@ class ImageScrapingServiceTest {
         when(persistence.formatAnalysisKey(any(ImageId.class))).thenReturn("analysis/v1/2026/01/06/1200.json");
         when(storage.exists(anyString())).thenReturn(true);
 
-        ImageScrapingService service = new ImageScrapingService(config, planner, latest, acquisition, classification, persistence, manifestService, storage);
+        ImageScrapingService service = new ImageScrapingService(config, planner, acquisition, classification, persistence, manifestService, storage);
 
         ImageContext ctx = service.processSingle(ZonedDateTime.now(ZoneId.of("UTC")), true);
 
         assertNull(ctx);
-        verifyNoInteractions(acquisition, classification, latest, manifestService);
+        verifyNoInteractions(acquisition, classification, manifestService);
     }
 
     @Test
     void processSingle_processesAndPublishesWhenNew() throws Exception {
         ScraperConfig config = new ScraperConfig();
         TimeWindowPlanner planner = new TimeWindowPlanner(config);
-        LatestImageService latest = mock(LatestImageService.class);
         ImageAcquisitionService acquisition = mock(ImageAcquisitionService.class);
         ImageClassificationService classification = mock(ImageClassificationService.class);
         AnalysisPersistenceService persistence = mock(AnalysisPersistenceService.class);
@@ -63,13 +61,12 @@ class ImageScrapingServiceTest {
         );
         when(persistence.persistAnalysis(any(), any(ImageId.class))).thenReturn("analysis/key");
 
-        ImageScrapingService service = new ImageScrapingService(config, planner, latest, acquisition, classification, persistence, manifestService, storage);
+        ImageScrapingService service = new ImageScrapingService(config, planner, acquisition, classification, persistence, manifestService, storage);
 
         ImageContext ctx = service.processSingle(ZonedDateTime.now(ZoneId.of("UTC")), true);
 
         assertNotNull(ctx);
         assertEquals(AcquisitionStatus.OK, ctx.getStatus());
-        verify(latest, times(1)).publishIfNew(any());
         verify(manifestService, times(1)).updateManifests(any(), any(ImageId.class));
     }
 }

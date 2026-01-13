@@ -1,8 +1,8 @@
-package com.tahomatracker.di;
+package com.tahomatracker.service.modules;
 
 import javax.inject.Singleton;
 
-import com.tahomatracker.labelapi.LabelApiConfig;
+import com.tahomatracker.service.api.LabelApiConfig;
 import com.tahomatracker.service.external.DynamoDbLabelRepository;
 import com.tahomatracker.service.external.LabelRepository;
 import com.tahomatracker.service.external.ObjectStorageClient;

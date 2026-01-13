@@ -44,6 +44,9 @@ import software.amazon.awscdk.services.s3.HttpMethods;
 import software.constructs.Construct;
 
 public class TahomaTrackerStack extends Stack {
+    
+    private static final String HEARTBEAT_IMAGE_ID = "9999/12/31/2359";
+    
     public TahomaTrackerStack(final Construct scope, final String id) {
         this(scope, id, null);
     }
@@ -120,7 +123,6 @@ public class TahomaTrackerStack extends Stack {
                                 Map.entry("PANOS_PREFIX", "needle-cam/panos"),
                                 Map.entry("CROPPED_PREFIX", "needle-cam/cropped-images"),
                                 Map.entry("ANALYSIS_PREFIX", "analysis"),
-                                Map.entry("LATEST_KEY", "latest/latest.json"),
                                 Map.entry("MODELS_PREFIX", "models"),
                                 Map.entry("CROP_BOX", "3975,200,4575,650"),
                                 Map.entry("OUT_THRESHOLD", "0.85"),
@@ -158,7 +160,7 @@ public class TahomaTrackerStack extends Stack {
         Function labelApiFn = Function.Builder.create(this, "LabelApiFunction")
                 .runtime(Runtime.JAVA_21)
                 .architecture(Architecture.X86_64)
-                .handler("com.tahomatracker.labelapi.LabelApiHandler::handleRequest")
+                .handler("com.tahomatracker.service.api.LabelApiHandler::handleRequest")
                 .code(Code.fromAsset("target/tahomacdk-0.1.jar"))
                 .memorySize(512)
                 .timeout(Duration.seconds(30))
@@ -185,16 +187,48 @@ public class TahomaTrackerStack extends Stack {
                         .build())
                 .build());
 
-        // Keep Label API function warm with a periodic OPTIONS-style invoke
+        // Admin API Lambda - handles admin label operations
+        // Uses Function URL for direct HTTP access (no API Gateway costs)
+        Function adminApiFn = Function.Builder.create(this, "AdminApiFunction")
+                .runtime(Runtime.JAVA_21)
+                .architecture(Architecture.X86_64)
+                .handler("com.tahomatracker.service.api.AdminApiHandler::handleRequest")
+                .code(Code.fromAsset("target/tahomacdk-0.1.jar"))
+                .memorySize(512)
+                .timeout(Duration.seconds(30))
+                .environment(Map.ofEntries(
+                        Map.entry("BUCKET_NAME", bucket.getBucketName()),
+                        Map.entry("IMAGE_LABELS_TABLE_NAME", labelsTable.getTableName()),
+                        Map.entry("ANALYSIS_PREFIX", "analysis"),
+                        Map.entry("MODEL_VERSION", "v1"),
+                        Map.entry("ALLOWED_ORIGINS", String.join(",", labelApiAllowedOrigins))
+                ))
+                .build();
+
+        labelsTable.grantReadWriteData(adminApiFn);
+        bucket.grantRead(adminApiFn);
+
+        // Function URL with CORS for admin access
+        FunctionUrl adminApiUrl = adminApiFn.addFunctionUrl(FunctionUrlOptions.builder()
+                .authType(FunctionUrlAuthType.NONE)
+                .cors(FunctionUrlCorsOptions.builder()
+                        .allowedOrigins(labelApiAllowedOrigins)
+                        .allowedMethods(java.util.List.of(HttpMethod.GET, HttpMethod.POST))
+                        .allowedHeaders(java.util.List.of("content-type", "authorization"))
+                        .maxAge(Duration.hours(1))
+                        .build())
+                .build());
+
+        // Keep Label API function warm with a periodic POST to test endpoint
         Rule.Builder.create(this, "LabelApiWarmupSchedule")
-                .description("Keeps Label API Lambda warm with a lightweight OPTIONS invoke every 5 minutes")
+                .description("Keeps Label API Lambda warm with a test POST request every 5 minutes")
                 .schedule(Schedule.rate(Duration.minutes(5)))
                 .targets(java.util.List.of(
                         new LambdaFunction(labelApiFn,
                                 software.amazon.awscdk.services.events.targets.LambdaFunctionProps.builder()
                                         .event(RuleTargetInput.fromObject(Map.of(
-                                                "requestContext", Map.of("http", Map.of("method", "OPTIONS")),
-                                                "body", "",
+                                                "requestContext", Map.of("http", Map.of("method", "POST")),
+                                                "body", "{\"imageId\":\"" + HEARTBEAT_IMAGE_ID + "\",\"frameState\":\"good\",\"visibility\":\"out\"}",
                                                 "isBase64Encoded", false
                                         )))
                                         .build())
@@ -285,6 +319,12 @@ public class TahomaTrackerStack extends Stack {
                 .value(labelApiUrl.getUrl())
                 .description("Label API Function URL for crowdsource label submissions")
                 .exportName("TahomaTrackerLabelApiUrl")
+                .build();
+
+        CfnOutput.Builder.create(this, "AdminApiUrl")
+                .value(adminApiUrl.getUrl())
+                .description("Admin API Function URL for admin label operations")
+                .exportName("TahomaTrackerAdminApiUrl")
                 .build();
     }
 }

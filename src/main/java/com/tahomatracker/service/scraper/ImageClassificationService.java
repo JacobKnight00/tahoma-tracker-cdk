@@ -1,4 +1,4 @@
-package com.tahomatracker.service.process;
+package com.tahomatracker.service.scraper;
 
 import com.tahomatracker.service.classifier.FrameStateClassifier;
 import com.tahomatracker.service.classifier.VisibilityClassifier;

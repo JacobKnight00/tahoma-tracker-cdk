@@ -1,4 +1,4 @@
-package com.tahomatracker.labelapi.dto;
+package com.tahomatracker.service.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;

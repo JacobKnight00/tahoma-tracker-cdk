@@ -10,13 +10,12 @@ import com.tahomatracker.service.classifier.OnnxVisibilityClassifier;
 import com.tahomatracker.service.external.ObjectStorageClient;
 import com.tahomatracker.service.external.S3ObjectStorageClient;
 import com.tahomatracker.service.external.SliceFetcher;
-import com.tahomatracker.service.process.AnalysisPersistenceService;
-import com.tahomatracker.service.process.ImageAcquisitionService;
-import com.tahomatracker.service.process.ImageClassificationService;
-import com.tahomatracker.service.process.LatestImageService;
-import com.tahomatracker.service.process.ManifestService;
-import com.tahomatracker.service.process.ImageScrapingService;
-import com.tahomatracker.service.process.TimeWindowPlanner;
+import com.tahomatracker.service.scraper.AnalysisPersistenceService;
+import com.tahomatracker.service.scraper.ImageAcquisitionService;
+import com.tahomatracker.service.scraper.ImageClassificationService;
+import com.tahomatracker.service.scraper.ManifestService;
+import com.tahomatracker.service.scraper.ImageScrapingService;
+import com.tahomatracker.service.scraper.TimeWindowPlanner;
 import software.amazon.awssdk.services.s3.S3Client;
 import java.nio.file.Path;
 import java.time.ZoneId;
@@ -75,7 +74,6 @@ public class BackfillRunner {
                 panosPrefix,
                 croppedPrefix,
                 analysisPrefix,
-                "latest/latest.json",
                 manifestsPrefix,
                 CropBox.fromString(cropBox),
                 0.85,
@@ -120,9 +118,8 @@ public class BackfillRunner {
                 frameStateClassifier, visibilityClassifier, s3Store);
         AnalysisPersistenceService persistence = new AnalysisPersistenceService(s3Store, analysisPrefix, modelVersion);
         var timeWindow = new TimeWindowPlanner(config);
-        var latestService = new LatestImageService(s3Store, config.latestKey, config.localTz);
         var manifestService = new ManifestService(s3Store, config.manifestsPrefix, config.localTz);
-        ImageScrapingService scrapingService = new ImageScrapingService(config, timeWindow, latestService, imageAcquisition,
+        ImageScrapingService scrapingService = new ImageScrapingService(config, timeWindow, imageAcquisition,
                 classification, persistence, manifestService, s3Store);
 
         if (dryRun) {

@@ -78,4 +78,23 @@ public interface LabelRepository {
     default boolean exists(String imageId) {
         return findById(imageId).isPresent();
     }
+
+    /**
+     * Retrieves labels with imageId starting with the given prefix.
+     * Useful for date-based queries (e.g., prefix "2025/01/10").
+     * 
+     * @param imageIdPrefix the prefix to match (e.g., "2025/01/10")
+     * @param limit maximum number of results to return
+     * @return list of matching labels
+     */
+    List<ImageLabel> findByImageIdPrefix(String imageIdPrefix, int limit);
+
+    /**
+     * Retrieves all labels (scan operation).
+     * Use with caution - can be expensive for large datasets.
+     * 
+     * @param limit maximum number of results to return
+     * @return list of all labels
+     */
+    List<ImageLabel> findAll(int limit);
 }

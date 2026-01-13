@@ -2,9 +2,9 @@ package com.tahomatracker.service;
 
 import javax.inject.Singleton;
 
-import com.tahomatracker.di.AwsClientsModule;
-import com.tahomatracker.di.ScraperModule;
-import com.tahomatracker.service.process.ImageScrapingService;
+import com.tahomatracker.service.modules.AwsClientsModule;
+import com.tahomatracker.service.modules.ScraperModule;
+import com.tahomatracker.service.scraper.ImageScrapingService;
 
 import dagger.Component;
 

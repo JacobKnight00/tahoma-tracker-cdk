@@ -1,4 +1,4 @@
-package com.tahomatracker.service.process;
+package com.tahomatracker.service.scraper;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -311,5 +311,40 @@ public class ManifestService {
         int imageMonth = Integer.parseInt(imageId.getMonth());
         LocalDate today = LocalDate.now(localTz);
         return imageYear == today.getYear() && imageMonth == today.getMonthValue();
+    }
+
+    /**
+     * Gets the latest processed timestamp from the current daily manifest.
+     * Used to determine where to resume processing after a restart.
+     *
+     * @return The timestamp of the last image in today's manifest, or empty if none
+     */
+    public Optional<java.time.ZonedDateTime> getLatestProcessedTimestamp() {
+        String currentKey = manifestsPrefix + "/daily/current.json";
+        Optional<DailyManifest> manifestOpt = loadDailyManifest(currentKey);
+        
+        if (manifestOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        
+        DailyManifest manifest = manifestOpt.get();
+        var images = manifest.getImages();
+        if (images == null || images.isEmpty()) {
+            return Optional.empty();
+        }
+        
+        // Get the last image entry (they're sorted by time)
+        var lastEntry = images.get(images.size() - 1);
+        String dateStr = manifest.getDate(); // YYYY-MM-DD
+        String time = lastEntry.getTime();   // HHmm
+        
+        try {
+            String imageIdStr = dateStr.replace("-", "/") + "/" + time;
+            ImageId imageId = ImageId.parse(imageIdStr);
+            return Optional.of(imageId.toInstant(localTz).atZone(java.time.ZoneOffset.UTC));
+        } catch (Exception e) {
+            log.warn("Failed to parse latest timestamp from manifest: {}", e.getMessage());
+            return Optional.empty();
+        }
     }
 }

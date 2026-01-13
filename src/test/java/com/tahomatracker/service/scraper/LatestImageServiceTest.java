@@ -1,4 +1,4 @@
-package com.tahomatracker.service.process;
+package com.tahomatracker.service.scraper;
 
 import static org.junit.jupiter.api.Assertions.*;
 

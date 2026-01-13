@@ -1,4 +1,4 @@
-package com.tahomatracker.labelapi;
+package com.tahomatracker.service.api;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -8,8 +8,8 @@ import java.util.Optional;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.tahomatracker.labelapi.dto.LabelRequest;
-import com.tahomatracker.labelapi.dto.LabelResponse;
+import com.tahomatracker.service.api.dto.LabelRequest;
+import com.tahomatracker.service.api.dto.LabelResponse;
 import com.tahomatracker.service.domain.ImageLabel;
 import com.tahomatracker.service.domain.VoteCounts;
 import com.tahomatracker.service.enums.FrameState;

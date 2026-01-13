@@ -1,4 +1,4 @@
-package com.tahomatracker.di;
+package com.tahomatracker.service.modules;
 
 import javax.inject.Singleton;
 
@@ -12,13 +12,12 @@ import com.tahomatracker.service.classifier.VisibilityClassifier;
 import com.tahomatracker.service.external.ObjectStorageClient;
 import com.tahomatracker.service.external.S3ObjectStorageClient;
 import com.tahomatracker.service.external.SliceFetcher;
-import com.tahomatracker.service.process.AnalysisPersistenceService;
-import com.tahomatracker.service.process.ImageAcquisitionService;
-import com.tahomatracker.service.process.ImageClassificationService;
-import com.tahomatracker.service.process.ImageScrapingService;
-import com.tahomatracker.service.process.LatestImageService;
-import com.tahomatracker.service.process.ManifestService;
-import com.tahomatracker.service.process.TimeWindowPlanner;
+import com.tahomatracker.service.scraper.AnalysisPersistenceService;
+import com.tahomatracker.service.scraper.ImageAcquisitionService;
+import com.tahomatracker.service.scraper.ImageClassificationService;
+import com.tahomatracker.service.scraper.ImageScrapingService;
+import com.tahomatracker.service.scraper.ManifestService;
+import com.tahomatracker.service.scraper.TimeWindowPlanner;
 
 import dagger.Module;
 import dagger.Provides;
@@ -123,12 +122,6 @@ public class ScraperModule {
 
     @Provides
     @Singleton
-    LatestImageService provideLatestImageService(ObjectStorageClient storage) {
-        return new LatestImageService(storage, config.latestKey, config.localTz);
-    }
-
-    @Provides
-    @Singleton
     ManifestService provideManifestService(ObjectStorageClient storage) {
         return new ManifestService(storage, config.manifestsPrefix, config.localTz);
     }
@@ -137,14 +130,13 @@ public class ScraperModule {
     @Singleton
     ImageScrapingService provideImageScrapingService(
             TimeWindowPlanner timeWindow,
-            LatestImageService latestService,
             ImageAcquisitionService imageAcquisition,
             ImageClassificationService classification,
             AnalysisPersistenceService persistence,
             ManifestService manifestService,
             ObjectStorageClient storage) {
         return new ImageScrapingService(
-                config, timeWindow, latestService, imageAcquisition,
+                config, timeWindow, imageAcquisition,
                 classification, persistence, manifestService, storage);
     }
 }

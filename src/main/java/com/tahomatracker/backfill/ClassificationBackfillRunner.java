@@ -12,9 +12,9 @@ import com.tahomatracker.service.enums.FrameState;
 import com.tahomatracker.service.enums.Visibility;
 import com.tahomatracker.service.external.ObjectStorageClient;
 import com.tahomatracker.service.external.S3ObjectStorageClient;
-import com.tahomatracker.service.process.AnalysisPersistenceService;
-import com.tahomatracker.service.process.ImageClassificationService;
-import com.tahomatracker.service.process.TimeWindowPlanner;
+import com.tahomatracker.service.scraper.AnalysisPersistenceService;
+import com.tahomatracker.service.scraper.ImageClassificationService;
+import com.tahomatracker.service.scraper.TimeWindowPlanner;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;

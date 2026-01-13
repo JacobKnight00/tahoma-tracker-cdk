@@ -156,4 +156,43 @@ public class DynamoDbLabelRepository implements LabelRepository {
 
         return count;
     }
+
+    @Override
+    public List<ImageLabel> findByImageIdPrefix(String imageIdPrefix, int limit) {
+        if (imageIdPrefix == null || imageIdPrefix.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        List<ImageLabel> results = new ArrayList<>();
+
+        // Use scan with filter expression to find items with imageId starting with prefix
+        software.amazon.awssdk.enhanced.dynamodb.Expression filterExpression = 
+            software.amazon.awssdk.enhanced.dynamodb.Expression.builder()
+                .expression("begins_with(imageId, :prefix)")
+                .putExpressionValue(":prefix", software.amazon.awssdk.services.dynamodb.model.AttributeValue.builder()
+                        .s(imageIdPrefix)
+                        .build())
+                .build();
+
+        table.scan(r -> r.filterExpression(filterExpression).limit(limit))
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .limit(limit)
+                .forEach(results::add);
+
+        return results;
+    }
+
+    @Override
+    public List<ImageLabel> findAll(int limit) {
+        List<ImageLabel> results = new ArrayList<>();
+
+        table.scan(r -> r.limit(limit))
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .limit(limit)
+                .forEach(results::add);
+
+        return results;
+    }
 }

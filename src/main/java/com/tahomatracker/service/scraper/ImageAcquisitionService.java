@@ -1,4 +1,4 @@
-package com.tahomatracker.service.process;
+package com.tahomatracker.service.scraper;
 
 import com.tahomatracker.service.domain.CropBox;
 import com.tahomatracker.service.domain.AcquisitionResult;

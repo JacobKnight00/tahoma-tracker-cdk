@@ -1,9 +1,9 @@
-package com.tahomatracker.labelapi;
+package com.tahomatracker.service.api;
 
 import javax.inject.Singleton;
 
-import com.tahomatracker.di.AwsClientsModule;
-import com.tahomatracker.di.LabelApiModule;
+import com.tahomatracker.service.modules.AwsClientsModule;
+import com.tahomatracker.service.modules.LabelApiModule;
 
 import dagger.Component;
 

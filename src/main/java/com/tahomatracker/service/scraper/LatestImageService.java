@@ -1,4 +1,4 @@
-package com.tahomatracker.service.process;
+package com.tahomatracker.service.scraper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tahomatracker.service.domain.ImageContext;

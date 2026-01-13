@@ -2,8 +2,8 @@ package com.tahomatracker.service;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.tahomatracker.di.ScraperModule;
-import com.tahomatracker.service.process.ImageScrapingService;
+import com.tahomatracker.service.modules.ScraperModule;
+import com.tahomatracker.service.scraper.ImageScrapingService;
 import org.slf4j.MDC;
 import java.io.IOException;
 import java.time.Instant;

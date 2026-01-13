@@ -1,4 +1,4 @@
-package com.tahomatracker.service.process;
+package com.tahomatracker.service.scraper;
 
 import com.tahomatracker.service.ScraperConfig;
 import com.tahomatracker.service.domain.AcquisitionResult;
@@ -29,7 +29,6 @@ public class ImageScrapingService {
 
     private final ScraperConfig config;
     private final TimeWindowPlanner timeWindow;
-    private final LatestImageService latestService;
     private final ImageAcquisitionService imageAcquisition;
     private final ImageClassificationService classification;
     private final AnalysisPersistenceService persistence;
@@ -38,7 +37,6 @@ public class ImageScrapingService {
 
     public ImageScrapingService(ScraperConfig config,
                                 TimeWindowPlanner timeWindow,
-                                LatestImageService latestService,
                                 ImageAcquisitionService imageAcquisition,
                                 ImageClassificationService classification,
                                 AnalysisPersistenceService persistence,
@@ -46,7 +44,6 @@ public class ImageScrapingService {
                                 ObjectStorageClient storage) {
         this.config = config;
         this.timeWindow = timeWindow;
-        this.latestService = latestService;
         this.imageAcquisition = imageAcquisition;
         this.classification = classification;
         this.persistence = persistence;
@@ -55,7 +52,7 @@ public class ImageScrapingService {
     }
 
     public Map<String, Object> run(Context lambdaContext) throws IOException, InterruptedException {
-        ZonedDateTime lastSuccessful = latestService.resolveLatestTimestamp()
+        ZonedDateTime lastSuccessful = manifestService.getLatestProcessedTimestamp()
                 .orElse(ZonedDateTime.now(ZoneOffset.UTC).minusHours(24));
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
         log.info("Starting pipeline: lastSuccessful={}, now={}, lookbackHours={}",
@@ -119,11 +116,6 @@ public class ImageScrapingService {
                     log.error("Failed {}: {}", imageIdValue, ex.getMessage(), ex);
                 }
             }
-        }
-
-        if (mostRecent != null) {
-            mostRecent.setUpdatedAt(isoformat(Instant.now()));
-            latestService.publishIfNew(mostRecent);
         }
 
         Map<String, Object> summary = new HashMap<>();
@@ -207,10 +199,6 @@ public class ImageScrapingService {
             }
 
             ImageContext result = processBucket(local, imageId);
-            if (publishLatest && result != null && result.getStatus() == AcquisitionStatus.OK) {
-                result.setUpdatedAt(isoformat(Instant.now()));
-                latestService.publishIfNew(result);
-            }
             return result;
         }
     }
