@@ -13,7 +13,6 @@ import com.tahomatracker.service.external.SliceFetcher;
 import com.tahomatracker.service.scraper.AnalysisPersistenceService;
 import com.tahomatracker.service.scraper.ImageAcquisitionService;
 import com.tahomatracker.service.scraper.ImageClassificationService;
-import com.tahomatracker.service.scraper.ManifestService;
 import com.tahomatracker.service.scraper.ImageScrapingService;
 import com.tahomatracker.service.scraper.TimeWindowPlanner;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -116,11 +115,11 @@ public class BackfillRunner {
                 sliceFetcher, s3Store, panosPrefix, croppedPrefix);
         ImageClassificationService classification = new ImageClassificationService(
                 frameStateClassifier, visibilityClassifier, s3Store);
-        AnalysisPersistenceService persistence = new AnalysisPersistenceService(s3Store, analysisPrefix, modelVersion);
+        AnalysisPersistenceService persistence = new AnalysisPersistenceService(
+                s3Store, analysisPrefix, manifestsPrefix, new String[]{modelVersion}, localTz);
         var timeWindow = new TimeWindowPlanner(config);
-        var manifestService = new ManifestService(s3Store, config.manifestsPrefix, config.localTz);
         ImageScrapingService scrapingService = new ImageScrapingService(config, timeWindow, imageAcquisition,
-                classification, persistence, manifestService, s3Store);
+                classification, persistence, s3Store);
 
         if (dryRun) {
             ZonedDateTime ts = start;

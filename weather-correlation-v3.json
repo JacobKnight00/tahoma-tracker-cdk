@@ -1,0 +1,93 @@
+{
+  "cam_visibility": {
+    "threshold": 21800.0,
+    "higher_better": true,
+    "f1": 0.5282653431787919,
+    "precision": 0.42834707499018454,
+    "recall": 0.6889801073571203
+  },
+  "path_min_visibility": {
+    "threshold": 17900.0,
+    "higher_better": true,
+    "f1": 0.5340589228748357,
+    "precision": 0.44224593390655753,
+    "recall": 0.6739816861383012
+  },
+  "path_max_cloud": {
+    "threshold": 100,
+    "higher_better": false,
+    "f1": 0.6114846111145378,
+    "precision": 0.501771434355704,
+    "recall": 0.7826018313861699
+  },
+  "mtn_cloud_low": {
+    "threshold": 6,
+    "higher_better": false,
+    "f1": 0.5195722649634684,
+    "precision": 0.37459010674666854,
+    "recall": 0.8476476160404168
+  },
+  "mtn_cloud_mid": {
+    "threshold": 42,
+    "higher_better": false,
+    "f1": 0.5314425961276247,
+    "precision": 0.40596616948587616,
+    "recall": 0.7691821913482791
+  },
+  "mtn_cloud_850hPa": {
+    "threshold": 2,
+    "higher_better": false,
+    "f1": 0.5656740770956558,
+    "precision": 0.41775869859918663,
+    "recall": 0.875749921060941
+  },
+  "mtn_cloud_800hPa": {
+    "threshold": 2,
+    "higher_better": false,
+    "f1": 0.5836997319034852,
+    "precision": 0.44194543683013965,
+    "recall": 0.8593305967792864
+  },
+  "mtn_cloud_700hPa": {
+    "threshold": 1,
+    "higher_better": false,
+    "f1": 0.5389423076923077,
+    "precision": 0.3874602516244988,
+    "recall": 0.8849068519103253
+  },
+  "mtn_cloud_600hPa": {
+    "threshold": 2,
+    "higher_better": false,
+    "f1": 0.5017518679555912,
+    "precision": 0.34243733794295594,
+    "recall": 0.9382696558257025
+  },
+  "mtn_humidity_700hPa": {
+    "threshold": 58,
+    "higher_better": false,
+    "f1": 0.5558902459061285,
+    "precision": 0.42557651991614254,
+    "recall": 0.8012314493211241
+  },
+  "dew_depression": {
+    "threshold": 4.5,
+    "higher_better": true,
+    "f1": 0.5484302294485746,
+    "precision": 0.4147051686483863,
+    "recall": 0.8094411114619514
+  },
+  "pressure_trend": {
+    "threshold": -1.7,
+    "higher_better": true,
+    "f1": 0.4511315770686085,
+    "precision": 0.2914667896678967,
+    "recall": 0.9976318282286075
+  },
+  "vis_trend": {
+    "threshold": -24.0,
+    "higher_better": true,
+    "f1": 0.44973019028685035,
+    "precision": 0.2900980122744344,
+    "recall": 1.0
+  }
+}

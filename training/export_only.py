@@ -2,6 +2,7 @@
 Export a trained PyTorch checkpoint to ONNX format.
 Use this script when you have a trained model checkpoint but need to re-export.
 """
+import json
 import logging
 import sys
 import argparse
@@ -42,18 +43,19 @@ def main(args):
         logger.info(f"Loading configuration from {args.config}")
         config = TrainingConfig(args.config)
 
+        model_version = args.version
         task = args.task
+        version_dir = config.output_models_dir / f"v{model_version}"
+        
         if task == 'frame_state':
             labels = config.get_frame_state_labels()
             label_to_index = config.get_frame_state_label_to_index()
-            model_version = config.training_frame_state_model_version
-            default_checkpoint = config.output_checkpoint_dir / 'best_frame_state_model.pt'
+            default_checkpoint = version_dir / 'best_frame_state_model.pt'
             onnx_filename = f"frame_state_v{model_version}.onnx"
         else:
             labels = config.get_visibility_labels()
             label_to_index = config.get_visibility_label_to_index()
-            model_version = config.training_visibility_model_version
-            default_checkpoint = config.output_checkpoint_dir / 'best_visibility_model.pt'
+            default_checkpoint = version_dir / 'best_visibility_model.pt'
             onnx_filename = f"visibility_v{model_version}.onnx"
         
         # Determine checkpoint
@@ -73,7 +75,7 @@ def main(args):
         
         # Export to ONNX
         logger.info("Exporting model to ONNX format...")
-        onnx_path = config.output_models_dir / f"v{model_version}" / onnx_filename
+        onnx_path = version_dir / onnx_filename
         onnx_path.parent.mkdir(parents=True, exist_ok=True)
         ONNXExporter.export_model(
             model,
@@ -85,29 +87,28 @@ def main(args):
             'cpu'
         )
         
-        # Create metadata (use placeholder metrics if not provided)
+        # Create metadata from args or metrics file
         logger.info("Creating model metadata...")
-        metrics = {
-            'best_epoch': args.best_epoch or 8,
-            'best_val_loss': args.best_val_loss or 0.4875,
-            'final_val_accuracy': args.final_val_accuracy or 0.8222,
-            'final_train_loss': args.final_train_loss or 0.4159,
-            'final_val_loss': args.final_val_loss or 0.4875
-        }
-        
-        metadata = ONNXExporter.create_metadata(
-            model_version,
-            metrics,
-            labels,
-            (config.image_height, config.image_width),
-            {
-                'mean': config.normalization_mean,
-                'std': config.normalization_std
-            },
-            label_to_index
-        )
+        metrics_file = version_dir / f'{task}_metrics.json'
         metadata_path = onnx_path.with_suffix('.onnx.json')
-        save_metadata(metadata, metadata_path)
+        
+        if metadata_path.exists():
+            logger.info(f"Metadata already exists at {metadata_path}, skipping")
+        elif metrics_file.exists():
+            logger.info(f"Loading metrics from {metrics_file}")
+            with open(metrics_file) as f:
+                metrics = json.load(f)
+            metadata = ONNXExporter.create_metadata(
+                model_version,
+                metrics,
+                labels,
+                (config.image_height, config.image_width),
+                {'mean': config.normalization_mean, 'std': config.normalization_std},
+                label_to_index
+            )
+            save_metadata(metadata, metadata_path)
+        else:
+            logger.warning(f"No metrics file found at {metrics_file}, skipping metadata generation")
         
         logger.info(f"Export complete!")
         logger.info(f"ONNX model: {onnx_path}")
@@ -117,7 +118,7 @@ def main(args):
             bucket = args.bucket or config.s3_bucket
             s3_prefix = config.get_s3_model_version_prefix(model_version)
             logger.info(f"Uploading artifacts to s3://{bucket}/{s3_prefix}")
-            uploader = S3ModelUploader(bucket, config.aws_region)
+            uploader = S3ModelUploader(bucket, config.aws_region, profile=config.aws_profile)
             uploader.upload_model(
                 onnx_path,
                 metadata_path,
@@ -139,6 +140,12 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Export trained model to ONNX')
+    parser.add_argument(
+        '--version',
+        type=int,
+        required=True,
+        help='Model version number (e.g., 2 for v2)'
+    )
     parser.add_argument(
         '--task',
         choices=['frame_state', 'visibility'],

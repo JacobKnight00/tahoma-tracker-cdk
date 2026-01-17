@@ -1,0 +1,36 @@
+{
+  "total_records": 21840,
+  "visible_count": 3523,
+  "correlations": {
+    "cam_visibility": {
+      "visible_mean": 29420.18,
+      "not_visible_mean": 23048.49,
+      "difference": 6371.7
+    },
+    "mtn_visibility": {
+      "visible_mean": 48208.37,
+      "not_visible_mean": 30630.87,
+      "difference": 17577.5
+    },
+    "mtn_cloud_cover": {
+      "visible_mean": 49.81,
+      "not_visible_mean": 69.34,
+      "difference": -19.53
+    },
+    "mtn_cloud_mid": {
+      "visible_mean": 19.21,
+      "not_visible_mean": 37.73,
+      "difference": -18.52
+    },
+    "mtn_precipitation": {
+      "visible_mean": 0.11,
+      "not_visible_mean": 0.3,
+      "difference": -0.19
+    },
+    "mtn_humidity": {
+      "visible_mean": 61.37,
+      "not_visible_mean": 71.18,
+      "difference": -9.8
+    }
+  }
+}

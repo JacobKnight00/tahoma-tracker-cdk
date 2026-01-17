@@ -1,0 +1,3 @@
+usage: train_frame_state.py [-h] --version VERSION [--bucket BUCKET]
+                            [--config CONFIG] [--upload] [--no-weights]
+train_frame_state.py: error: the following arguments are required: --version

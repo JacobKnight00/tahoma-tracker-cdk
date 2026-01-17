@@ -17,15 +17,17 @@ logger = logging.getLogger(__name__)
 class S3ModelUploader:
     """Handles uploading trained models and metadata to S3."""
     
-    def __init__(self, bucket: str, region: str = 'us-west-2'):
+    def __init__(self, bucket: str, region: str = 'us-west-2', profile: Optional[str] = None):
         """
         Initialize S3 uploader.
         
         Args:
             bucket: S3 bucket name
             region: AWS region
+            profile: AWS profile name (optional)
         """
-        self.s3_client = boto3.client('s3', region_name=region)
+        session = boto3.Session(profile_name=profile) if profile else boto3.Session()
+        self.s3_client = session.client('s3', region_name=region)
         self.bucket = bucket
         logger.info(f"Initialized S3ModelUploader for bucket: {bucket}")
     
@@ -152,15 +154,17 @@ class S3ModelUploader:
 class S3ModelDownloader:
     """Handles downloading models for inference from S3."""
     
-    def __init__(self, bucket: str, region: str = 'us-west-2'):
+    def __init__(self, bucket: str, region: str = 'us-west-2', profile: Optional[str] = None):
         """
         Initialize S3 downloader.
         
         Args:
             bucket: S3 bucket name
             region: AWS region
+            profile: AWS profile name (optional)
         """
-        self.s3_client = boto3.client('s3', region_name=region)
+        session = boto3.Session(profile_name=profile) if profile else boto3.Session()
+        self.s3_client = session.client('s3', region_name=region)
         self.bucket = bucket
     
     def download_model(self, s3_key: str, local_path: Path) -> None:

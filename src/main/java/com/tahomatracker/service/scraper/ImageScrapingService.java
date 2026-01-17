@@ -32,7 +32,6 @@ public class ImageScrapingService {
     private final ImageAcquisitionService imageAcquisition;
     private final ImageClassificationService classification;
     private final AnalysisPersistenceService persistence;
-    private final ManifestService manifestService;
     private final ObjectStorageClient storage;
 
     public ImageScrapingService(ScraperConfig config,
@@ -40,19 +39,17 @@ public class ImageScrapingService {
                                 ImageAcquisitionService imageAcquisition,
                                 ImageClassificationService classification,
                                 AnalysisPersistenceService persistence,
-                                ManifestService manifestService,
                                 ObjectStorageClient storage) {
         this.config = config;
         this.timeWindow = timeWindow;
         this.imageAcquisition = imageAcquisition;
         this.classification = classification;
         this.persistence = persistence;
-        this.manifestService = manifestService;
         this.storage = storage;
     }
 
     public Map<String, Object> run(Context lambdaContext) throws IOException, InterruptedException {
-        ZonedDateTime lastSuccessful = manifestService.getLatestProcessedTimestamp()
+        ZonedDateTime lastSuccessful = persistence.getLatestProcessedTimestamp()
                 .orElse(ZonedDateTime.now(ZoneOffset.UTC).minusHours(24));
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
         log.info("Starting pipeline: lastSuccessful={}, now={}, lookbackHours={}",
@@ -124,7 +121,7 @@ public class ImageScrapingService {
         summary.put("skipped", skipped);
         summary.put("last_successful", mostRecent != null ? mostRecent.getImageId() : null);
 
-        manifestService.markCurrentManifestsChecked();
+        persistence.markCurrentManifestsChecked();
 
         if (processed > 0) {
             log.info("Pipeline complete: processed={}, skipped={}, latest={}",
@@ -169,7 +166,7 @@ public class ImageScrapingService {
         context.setAnalysisS3Key(analysisKey);
 
         // Step 4: Update daily and monthly manifests
-        manifestService.updateManifests(context, imageId);
+        persistence.updateManifests(context, imageId);
 
         return context;
     }

@@ -278,14 +278,7 @@ class ONNXExporter:
         metadata = {
             'model_version': model_version,
             'training_timestamp': training_timestamp,
-            'metrics': {
-                'best_epoch': metrics.get('best_epoch'),
-                'best_val_loss': metrics.get('best_val_loss'),
-                'best_val_accuracy': metrics.get('best_val_accuracy'),
-                'final_val_accuracy': metrics.get('final_val_accuracy'),
-                'final_train_loss': metrics.get('final_train_loss'),
-                'final_val_loss': metrics.get('final_val_loss')
-            },
+            'metrics': metrics,  # Pass through all metrics including confusion_matrix
             'input': {
                 'size': list(image_size),
                 'normalization': normalization

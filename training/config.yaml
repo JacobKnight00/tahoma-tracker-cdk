@@ -2,8 +2,7 @@
 
 # AWS Configuration
 aws:
-  # Region and credentials are loaded from standard AWS environment variables
-  # or configuration files (~/.aws/config, ~/.aws/credentials)
+  profile: tahoma  # Optional: set to profile name (e.g., "tahoma") or leave null for default
 
 # DynamoDB Configuration
 dynamodb:
@@ -12,10 +11,16 @@ dynamodb:
 
 # S3 Configuration
 s3:
-  bucket: tahoma-tracker-artifacts
+  bucket: tahomatrackerinfrastack-artifactsbucket2aac5544-sziy7mpohq8v
   cropped_images_prefix: needle-cam/cropped-images
   models_prefix: models
   analysis_prefix: analysis
+
+# Manifest Configuration (for filtering training data)
+manifest:
+  base_url: "https://deaf937kouf5m.cloudfront.net/manifests/daily"
+  cache_dir: "./cache/manifests"
+  confidence_threshold: 0.95  # Filter out labels that conflict with >95% confidence predictions
   
 # Training Configuration
 training:

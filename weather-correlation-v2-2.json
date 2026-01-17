@@ -1,0 +1,69 @@
+{
+  "total_records": 21840,
+  "visible_count": 6334,
+  "correlations": {
+    "cam_visibility": {
+      "visible_mean": 29421.16,
+      "not_visible_mean": 21707.51,
+      "difference": 7713.65,
+      "best_threshold": 21000.0,
+      "precision": 0.409,
+      "recall": 0.7,
+      "f1": 0.516
+    },
+    "mid_visibility": {
+      "visible_mean": 35500.69,
+      "not_visible_mean": 27181.41,
+      "difference": 8319.28,
+      "best_threshold": 30100.0,
+      "precision": 0.416,
+      "recall": 0.641,
+      "f1": 0.504
+    },
+    "mtn_cloud_summit": {
+      "visible_mean": 1.57,
+      "not_visible_mean": 5.78,
+      "difference": -4.21,
+      "best_threshold": 2,
+      "precision": 0.336,
+      "recall": 0.923,
+      "f1": 0.492
+    },
+    "mtn_humidity_summit": {
+      "visible_mean": 33.18,
+      "not_visible_mean": 47.12,
+      "difference": -13.94,
+      "best_threshold": 56,
+      "precision": 0.364,
+      "recall": 0.817,
+      "f1": 0.503
+    },
+    "mtn_cloud_low": {
+      "visible_mean": 18.3,
+      "not_visible_mean": 36.77,
+      "difference": -18.47,
+      "best_threshold": 14,
+      "precision": 0.354,
+      "recall": 0.793,
+      "f1": 0.489
+    },
+    "mtn_wind_speed": {
+      "visible_mean": 19.93,
+      "not_visible_mean": 24.0,
+      "difference": -4.07,
+      "best_threshold": 36.8,
+      "precision": 0.308,
+      "recall": 0.904,
+      "f1": 0.46
+    },
+    "mtn_freezing_level": {
+      "visible_mean": 2909.99,
+      "not_visible_mean": 2359.08,
+      "difference": 550.92,
+      "best_threshold": 1940.0,
+      "precision": 0.351,
+      "recall": 0.786,
+      "f1": 0.486
+    }
+  }
+}
