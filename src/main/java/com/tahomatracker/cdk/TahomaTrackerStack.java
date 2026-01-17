@@ -127,6 +127,7 @@ public class TahomaTrackerStack extends Stack {
                                 Map.entry("CROP_BOX", "3975,200,4575,650"),
                                 Map.entry("OUT_THRESHOLD", "0.85"),
                                 Map.entry("MODEL_VERSION", "v1"),
+                                Map.entry("MODEL_VERSIONS", "v1,v2"),
                                 Map.entry("LOCAL_TZ", "America/Los_Angeles"),
                                 Map.entry("WINDOW_START_HOUR", "4"),
                                 Map.entry("WINDOW_END_HOUR", "23"),

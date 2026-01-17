@@ -9,6 +9,9 @@ target
 AGENTS.md
 CLAUDE.md
 .github/copilot-instructions.md
+cache/*
+.cache/*
+scripts/__pycache__/*
 
 # CDK asset staging directory
 .cdk.staging

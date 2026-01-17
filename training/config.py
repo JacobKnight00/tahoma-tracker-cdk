@@ -4,7 +4,7 @@ Configuration management for model training.
 import os
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import yaml
 import boto3
@@ -48,6 +48,12 @@ class TrainingConfig:
                 raise ValueError(f"Missing required config section: {section}")
     
     @property
+    def aws_profile(self) -> Optional[str]:
+        """AWS profile name (optional)."""
+        aws_config = self.config.get('aws') or {}
+        return aws_config.get('profile')
+    
+    @property
     def aws_region(self) -> str:
         """AWS region for DynamoDB and S3."""
         # Try to get from config, then env vars/profile via boto3
@@ -87,6 +93,25 @@ class TrainingConfig:
     def s3_analysis_prefix(self) -> str:
         """S3 prefix for analysis outputs."""
         return self.config['s3'].get('analysis_prefix', 'analysis')
+    
+    # Manifest configuration (for filtering training data)
+    @property
+    def manifest_base_url(self) -> str:
+        """Base URL for daily manifests."""
+        manifest_config = self.config.get('manifest') or {}
+        return manifest_config.get('base_url', 'https://deaf937kouf5m.cloudfront.net/manifests/daily')
+    
+    @property
+    def manifest_cache_dir(self) -> str:
+        """Local directory to cache manifests."""
+        manifest_config = self.config.get('manifest') or {}
+        return manifest_config.get('cache_dir', './cache/manifests')
+    
+    @property
+    def manifest_confidence_threshold(self) -> float:
+        """Confidence threshold for filtering labels (default 0.95)."""
+        manifest_config = self.config.get('manifest') or {}
+        return manifest_config.get('confidence_threshold', 0.95)
     
     @property
     def training_frame_state_model_version(self) -> int:

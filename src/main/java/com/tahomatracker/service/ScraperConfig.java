@@ -21,6 +21,7 @@ public final class ScraperConfig {
     public final CropBox cropBox;
     public final double outThreshold;
     public final String modelVersion;
+    public final String[] modelVersions;
     public final ZoneId localTz;
     public final int windowStartHour;
     public final int windowEndHour;
@@ -39,6 +40,7 @@ public final class ScraperConfig {
         this.cropBox = CropBox.fromString(env("CROP_BOX", ""));
         this.outThreshold = Double.parseDouble(env("OUT_THRESHOLD", "0.85"));
         this.modelVersion = env("MODEL_VERSION", "v1");
+        this.modelVersions = env("MODEL_VERSIONS", modelVersion).split(",");
         this.frameStateModelKey = env("FRAME_STATE_MODEL_KEY", modelsPrefix + "/" + modelVersion + "/frame_state_" + modelVersion + ".onnx");
         this.visibilityModelKey = env("VISIBILITY_MODEL_KEY", modelsPrefix + "/" + modelVersion + "/visibility_" + modelVersion + ".onnx");
         this.modelInputWidth = Integer.parseInt(env("MODEL_INPUT_WIDTH", "224"));
@@ -77,6 +79,7 @@ public final class ScraperConfig {
         this.cropBox = cropBox;
         this.outThreshold = outThreshold;
         this.modelVersion = modelVersion;
+        this.modelVersions = new String[]{modelVersion};
         this.localTz = localTz;
         this.windowStartHour = windowStartHour;
         this.windowEndHour = windowEndHour;
@@ -96,5 +99,13 @@ public final class ScraperConfig {
             arr[i] = Float.parseFloat(parts[i].trim());
         }
         return arr;
+    }
+
+    public String getFrameStateModelKey(String version) {
+        return modelsPrefix + "/" + version + "/frame_state_" + version + ".onnx";
+    }
+
+    public String getVisibilityModelKey(String version) {
+        return modelsPrefix + "/" + version + "/visibility_" + version + ".onnx";
     }
 }

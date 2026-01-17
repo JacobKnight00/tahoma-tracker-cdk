@@ -20,7 +20,7 @@ from typing import Dict, List, Optional, Any
 
 
 # S3 prefixes (should match CDK/config values)
-ANALYSIS_PREFIX = "analysis/v1"
+ANALYSIS_PREFIX = "analysis"
 MANIFESTS_PREFIX = "manifests"
 
 
@@ -29,15 +29,16 @@ def parse_args():
     parser.add_argument("--bucket", required=True, help="S3 bucket name")
     parser.add_argument("--start", required=True, help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end", required=True, help="End date (YYYY-MM-DD)")
+    parser.add_argument("--version", type=int, default=1, help="Model version (default: 1)")
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel workers (default: 4)")
     parser.add_argument("--profile", help="AWS profile to use")
     parser.add_argument("--dry-run", action="store_true", help="Print what would be done without writing")
     return parser.parse_args()
 
 
-def list_analysis_files_for_date(s3_client, bucket: str, year: str, month: str, day: str) -> List[Dict[str, Any]]:
+def list_analysis_files_for_date(s3_client, bucket: str, version: int, year: str, month: str, day: str) -> List[Dict[str, Any]]:
     """List and read all analysis files for a specific date."""
-    prefix = f"{ANALYSIS_PREFIX}/{year}/{month}/{day}/"
+    prefix = f"{ANALYSIS_PREFIX}/v{version}/{year}/{month}/{day}/"
     analyses = []
 
     try:
@@ -205,19 +206,19 @@ def write_manifest(s3_client, bucket: str, key: str, manifest: Dict, dry_run: bo
     print(f"  Wrote {key}")
 
 
-def process_day(s3_client, bucket: str, year: str, month: str, day: str, dry_run: bool) -> Optional[Dict]:
+def process_day(s3_client, bucket: str, version: int, year: str, month: str, day: str, dry_run: bool) -> Optional[Dict]:
     """Process a single day and return the daily manifest."""
     date_str = f"{year}-{month}-{day}"
 
-    analyses = list_analysis_files_for_date(s3_client, bucket, year, month, day)
+    analyses = list_analysis_files_for_date(s3_client, bucket, version, year, month, day)
 
     if not analyses:
         return None
 
     daily_manifest = build_daily_manifest(date_str, analyses)
 
-    # Write daily manifest to archived location
-    daily_key = f"{MANIFESTS_PREFIX}/daily/{year}/{month}/{day}.json"
+    # Write daily manifest to versioned location: manifests/daily/v{version}/YYYY/MM/DD.json
+    daily_key = f"{MANIFESTS_PREFIX}/daily/v{version}/{year}/{month}/{day}.json"
     write_manifest(s3_client, bucket, daily_key, daily_manifest, dry_run)
 
     return daily_manifest
@@ -239,6 +240,7 @@ def main():
 
     print(f"Backfilling manifests from {args.start} to {args.end}")
     print(f"Bucket: {args.bucket}")
+    print(f"Model version: v{args.version}")
     if args.profile:
         print(f"Profile: {args.profile}")
     print(f"Workers: {args.workers}")
@@ -268,7 +270,7 @@ def main():
             year = date.strftime("%Y")
             month = date.strftime("%m")
             day = date.strftime("%d")
-            future = executor.submit(process_day, s3_client, args.bucket, year, month, day, args.dry_run)
+            future = executor.submit(process_day, s3_client, args.bucket, args.version, year, month, day, args.dry_run)
             futures[future] = (year, month, day)
 
         for future in as_completed(futures):
@@ -291,7 +293,7 @@ def main():
     for month_str, daily_manifests in sorted(daily_manifests_by_month.items()):
         year, month = month_str.split("-")
         monthly_manifest = build_monthly_manifest(month_str, daily_manifests)
-        monthly_key = f"{MANIFESTS_PREFIX}/monthly/{year}/{month}.json"
+        monthly_key = f"{MANIFESTS_PREFIX}/monthly/v{args.version}/{year}/{month}.json"
         write_manifest(s3_client, args.bucket, monthly_key, monthly_manifest, args.dry_run)
         print(f"Generated monthly manifest for {month_str}: {monthly_manifest['stats']['total_images']} images, "
               f"{monthly_manifest['stats']['days_with_out']} days with 'out'")

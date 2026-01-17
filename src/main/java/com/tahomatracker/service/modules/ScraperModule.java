@@ -2,7 +2,7 @@ package com.tahomatracker.service.modules;
 
 import javax.inject.Singleton;
 
-import com.tahomatracker.backfill.FastSliceFetcher;
+import com.tahomatracker.service.external.FastSliceFetcher;
 import com.tahomatracker.service.ScraperConfig;
 import com.tahomatracker.service.classifier.FrameStateClassifier;
 import com.tahomatracker.service.classifier.OnnxFrameStateClassifier;
@@ -16,7 +16,6 @@ import com.tahomatracker.service.scraper.AnalysisPersistenceService;
 import com.tahomatracker.service.scraper.ImageAcquisitionService;
 import com.tahomatracker.service.scraper.ImageClassificationService;
 import com.tahomatracker.service.scraper.ImageScrapingService;
-import com.tahomatracker.service.scraper.ManifestService;
 import com.tahomatracker.service.scraper.TimeWindowPlanner;
 
 import dagger.Module;
@@ -111,7 +110,8 @@ public class ScraperModule {
     @Provides
     @Singleton
     AnalysisPersistenceService provideAnalysisPersistenceService(ObjectStorageClient storage) {
-        return new AnalysisPersistenceService(storage, config.analysisPrefix, config.modelVersion);
+        return new AnalysisPersistenceService(storage, config.analysisPrefix,
+                config.manifestsPrefix, config.modelVersions, config.localTz);
     }
 
     @Provides
@@ -122,21 +122,14 @@ public class ScraperModule {
 
     @Provides
     @Singleton
-    ManifestService provideManifestService(ObjectStorageClient storage) {
-        return new ManifestService(storage, config.manifestsPrefix, config.localTz);
-    }
-
-    @Provides
-    @Singleton
     ImageScrapingService provideImageScrapingService(
             TimeWindowPlanner timeWindow,
             ImageAcquisitionService imageAcquisition,
             ImageClassificationService classification,
             AnalysisPersistenceService persistence,
-            ManifestService manifestService,
             ObjectStorageClient storage) {
         return new ImageScrapingService(
                 config, timeWindow, imageAcquisition,
-                classification, persistence, manifestService, storage);
+                classification, persistence, storage);
     }
 }
