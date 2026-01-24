@@ -1,19 +1,48 @@
-.classpath.txt
-target
+# Java/Maven
+target/
 .classpath
+.classpath.txt
 .project
-.idea
-.settings
-.vscode
+.settings/
+
+# IDE
+.idea/
+.vscode/
 *.iml
+
+# OS
+.DS_Store
+
+# CDK
+.cdk.staging
+cdk.out/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.eggs/
+
+# Training - cache and output
+training/cache/
+training/output/
+training/config.local.yaml
+
+# Test output
+src/test/output/
+
+# Credentials
+.aws/
+.env
+.env.local
+
+# Editor temp files
+*.swp
+*.swo
+*~
+
+# AI assistant instructions
 AGENTS.md
 CLAUDE.md
 .github/copilot-instructions.md
-cache/*
-.cache/*
-scripts/__pycache__/*
-
-# CDK asset staging directory
-.cdk.staging
-cdk.out
-src/test/output/

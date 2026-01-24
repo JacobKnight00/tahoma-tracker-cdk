@@ -1,223 +1,177 @@
 # Model Training
 
-This directory contains the model training pipeline for the Tahoma Tracker image classification system.
+Training pipeline for Tahoma Tracker image classification models.
 
 ## Overview
 
-The training system:
-- Loads labeled images from DynamoDB (sparse table design: only labeled images)
-- Downloads cropped images from S3
-- Trains a ResNet50-based classifier on the labeled data
-- Exports the trained model to ONNX format
-- Uploads model and metadata to S3 for use by inference Lambda
+The system uses two sequential classifiers:
+1. **Frame State** (4 classes) - Determines if the image is usable
+2. **Visibility** (3 classes) - Determines mountain visibility (only for "good" frames)
 
-## Architecture
-
-### Components
-
-1. **config.py** - Configuration management
-   - Loads `config.yaml` for training parameters
-   - Provides typed properties for all configuration values
-   - Creates local directories (models/, logs/, checkpoints/)
-
-2. **data_loader.py** - Data loading from AWS
-   - `DynamoDBLabelLoader` - Fetches labels from DynamoDB table
-   - `S3ImageLoader` - Downloads cropped images from S3
-   - `TrainingDataset` - PyTorch Dataset implementation
-
-3. **model.py** - Model architecture and training
-   - `ImageClassifier` - ResNet50-based CNN
-   - `ModelTrainer` - Training loop with validation
-   - `ONNXExporter` - ONNX export and metadata generation
-
-4. **s3_uploader.py** - S3 operations
-   - `S3ModelUploader` - Uploads trained models and metadata
-   - `S3ModelDownloader` - Downloads models for inference
-
-5. **train_model.py** - Main orchestration script
+Models are trained in PyTorch and exported to ONNX for Java inference.
 
 ## Setup
 
 ### Prerequisites
 
 - Python 3.9+
-- AWS credentials configured (via `~/.aws/credentials` or environment variables)
-- Access to DynamoDB table `TahomaTrackerImageLabels`
-- Access to S3 bucket `tahoma-tracker-artifacts`
+- AWS credentials configured
+- Access to DynamoDB labels table and S3 bucket
 
 ### Install Dependencies
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Verify Setup
+### Configuration
 
-Run the test script to ensure your environment is correctly configured:
+Copy the example config and add your AWS resources:
 
 ```bash
-python test_setup.py
+cp config.yaml config.local.yaml
 ```
 
-## Configuration
-
-Edit `config.yaml` to adjust training parameters:
-
+Edit `config.local.yaml`:
 ```yaml
-training:
-  model_version: 1        # Increment for each new model
-  epochs: 50
-  batch_size: 32
-  learning_rate: 0.001
-  train_split: 0.8        # 80% train, 20% validation
-  
-image:
-  width: 224
-  height: 224
-  normalization:
-    mean: [0.485, 0.456, 0.406]
-    std: [0.229, 0.224, 0.225]
+s3:
+  bucket: your-bucket-name
+
+dynamodb:
+  table_name: YourLabelsTable
 ```
 
-**Important**: After analyzing your dataset statistics, update the `normalization.mean` and `normalization.std` values for better training performance.
+The `config.local.yaml` file is gitignored and contains your resource-specific values.
 
-## Running Training
+## Training Models
 
-### Local training (save model locally first)
+### Train Frame State Classifier
 
 ```bash
-python train_model.py --bucket your-bucket-name
+python train.py --task frame_state
 ```
 
-This will:
-- Load labels from DynamoDB
-- Download images from S3 (using provided bucket)
-- Train the model
-- Save ONNX model to `models/model_v1.onnx`
-- Save metadata to `models/metadata_v1.json`
-
-### Training with S3 upload
+### Train Visibility Classifier
 
 ```bash
-python train_model.py --bucket your-bucket-name --upload
+python train.py --task visibility
 ```
 
-This will additionally upload the trained model and metadata to S3:
-- Model: `s3://tahoma-tracker-artifacts/models/v1/model.onnx`
-- Metadata: `s3://tahoma-tracker-artifacts/models/v1/metadata.json`
-- Version manifest: `s3://tahoma-tracker-artifacts/models/versions.json`
+### Upload to S3
 
-## Output
+Add `--upload` to upload the trained model to S3:
 
-After training, you'll find:
+```bash
+python train.py --task frame_state --upload
+python train.py --task visibility --upload
+```
 
-- **models/model_v{N}.onnx** - Trained model in ONNX format
-- **models/metadata_v{N}.json** - Model metadata (metrics, normalization, class labels)
-- **logs/** - Training logs
-- **checkpoints/best_model.pt** - Best model checkpoint in PyTorch format
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `train.py` | Train frame_state or visibility model |
+| `export_only.py` | Re-export a checkpoint to ONNX without retraining |
+| `backfill_model.py` | Generate classifications for a new model version |
+
+### Re-export a Model
+
+If you have a trained checkpoint and need to re-export to ONNX:
+
+```bash
+python export_only.py --task frame_state
+python export_only.py --task visibility --upload
+```
+
+### Generate Classifications for New Model
+
+After training a new model version (e.g., v2), generate classifications for existing images:
+
+```bash
+python backfill_model.py --model-version v2 --start 2024-01-01 --end 2024-12-31
+```
+
+This reads existing cropped images from S3 and creates:
+- `analysis/v2/YYYY/MM/DD/HHMM.json` - Classification results
+- `manifests/daily/v2/YYYY/MM/DD.json` - Daily summaries
+- `manifests/monthly/v2/YYYY/MM.json` - Monthly summaries
+
+## Directory Structure
+
+```
+training/
+├── train.py              # Main training script
+├── export_only.py        # Re-export checkpoint to ONNX
+├── backfill_model.py     # Generate classifications for new model
+├── config.py             # Configuration loader
+├── config.yaml           # Default config (committed)
+├── config.local.yaml     # Your resources (gitignored)
+├── data_loader.py        # DynamoDB/S3 data loading
+├── model.py              # PyTorch model and training
+├── s3_uploader.py        # S3 upload utilities
+├── cache/                # Downloaded images (gitignored)
+│   └── images/
+└── output/               # Generated artifacts (gitignored)
+    ├── models/
+    ├── checkpoints/
+    └── logs/
+```
 
 ## Classification Labels
 
-The model predicts one of 6 classifications:
+### Frame State (4 classes)
+| Label | Description |
+|-------|-------------|
+| `good` | Clear, usable image |
+| `dark` | Too dark (night/heavy clouds) |
+| `bad` | Corrupted, blurry, or unusable |
+| `off_target` | Camera pointed wrong direction |
 
-```
-- dark              (image is too dark)
-- bad               (image is blurry, corrupt, etc.)
-- off_target        (not Mount Rainier or wrong mountain)
-- good:out          (clear view, mountain fully visible outside cloud)
-- good:partially_out (clear view, mountain partially in cloud)
-- good:not_out      (clear view, mountain covered by cloud)
-```
+### Visibility (3 classes, only for "good" frames)
+| Label | Description |
+|-------|-------------|
+| `out` | Mountain fully visible |
+| `partially_out` | Mountain partially obscured |
+| `not_out` | Mountain not visible (clouds/fog) |
 
-These match the `Classification` enum in Java code.
+## Model Architecture
 
-## Data Flow
+- Base: ResNet50 (pretrained on ImageNet)
+- Input: 224x224 RGB images
+- Normalization: ImageNet mean/std
+- Output: Softmax probabilities
 
-```
-DynamoDB (labels)
-    ↓
-    ├─→ ImageId: "2024/01/15/1430"
-    ├─→ Classification: "good:not_out"
-    └─→ FrameState, Visibility, VoteCounts
-    
-S3 (cropped images)
-    ↓
-    └─→ cropped-images/2024/01/15/1430.jpg
-    
-     ↓
-[Training Dataset loads both]
-     ↓
-[PyTorch Model Training]
-     ↓
-[ONNX Export]
-     ↓
-S3 (model artifacts)
-    ├─→ models/v1/model.onnx
-    ├─→ models/v1/metadata.json
-    └─→ models/versions.json
-```
+## Output Files
+
+After training:
+- `output/checkpoints/best_frame_state_model.pt` - Best PyTorch checkpoint
+- `output/checkpoints/best_visibility_model.pt`
+- `output/models/v{N}/frame_state_v{N}.onnx` - ONNX model
+- `output/models/v{N}/visibility_v{N}.onnx`
+- `output/models/v{N}/*.onnx.json` - Model metadata
 
 ## Troubleshooting
 
-### "No data available for training"
+### "No S3 bucket configured"
+Set `s3.bucket` in `config.local.yaml`
+
+### "No valid images found"
 - Check DynamoDB table has labeled images
-- Verify DynamoDB credentials and table name in config.yaml
-- Ensure labels are complete (not in "good:pending" state)
+- Verify AWS credentials
+- Check S3 bucket contains cropped images
 
-### "Failed to load image from S3"
-- Verify S3 bucket name and prefix in config.yaml
-- Check S3 credentials and permissions
-- Ensure cropped images exist for all labeled images
-
-### Out of memory during training
+### Out of memory
 - Reduce `training.batch_size` in config.yaml
-- Reduce image dimensions (`image.width`, `image.height`)
-- Reduce `epochs` for quick testing
+- Set `training.num_workers: 0`
 
-### CUDA/GPU issues
-- The script auto-detects GPU; set `device='cpu'` for testing
-- Ensure PyTorch CUDA support is installed if using GPU
+### Apple Silicon (M1/M2)
+The training script auto-detects MPS (Metal Performance Shaders) for GPU acceleration on Apple Silicon.
 
-## Future Improvements
+## Version Strategy
 
-- [ ] Data augmentation (rotation, flip, color jitter)
-- [ ] Hyperparameter tuning (grid search, Bayesian optimization)
-- [ ] Model ensemble (multiple model versions)
-- [ ] Dataset analysis and statistics (class distribution, image quality metrics)
-- [ ] Automated retraining on a schedule
-- [ ] A/B testing framework for model comparison
-- [ ] ROC curve and confusion matrix analysis
-
-## Architecture Notes
-
-### Why Separate Training Module?
-
-1. **Separation of Concerns** - Training is independent from inference
-2. **Python Optimized** - Leverage PyTorch and data science ecosystem
-3. **Scalability** - Can migrate to SageMaker or other services later
-4. **Development** - Non-blocking for Java/Lambda development
-5. **Reproducibility** - Version models, track training runs
-
-### ONNX Format Choice
-
-- **Portability** - Run on any platform (Java, C++, web)
-- **Performance** - Optimized runtime inference
-- **Format Stability** - Long-term compatibility
-- **Java Support** - ONNX Runtime provides Java bindings
-
-### Model Version Strategy
-
-- One S3 path per model: `models/v{N}/`
-- Analysis outputs use version-specific paths: `analysis/v{N}/`
-- Java Lambda reads `MODEL_VERSION` env var to select which model to use
-- Version manifest tracks all deployed versions
-
-## Development Guidelines
-
-- Run tests frequently: `python -m pytest` (tests not yet implemented)
-- Use `.gitignore` to prevent committing large model files
-- Log important steps for debugging
-- Handle AWS exceptions gracefully
-- Validate configuration before starting expensive operations
+- Models are versioned: `v1`, `v2`, etc.
+- Each version has separate S3 paths
+- Analysis and manifests are also versioned
+- Lambda uses `MODEL_VERSION` env var to select active version

@@ -38,22 +38,20 @@ def _load_checkpoint_into_model(model: ImageClassifier, checkpoint_path: Path) -
 def main(args):
     """Export checkpoint to ONNX."""
     try:
-        # Load configuration
-        logger.info(f"Loading configuration from {args.config}")
-        config = TrainingConfig(args.config)
+        config = TrainingConfig()
 
         task = args.task
         if task == 'frame_state':
             labels = config.get_frame_state_labels()
             label_to_index = config.get_frame_state_label_to_index()
             model_version = config.training_frame_state_model_version
-            default_checkpoint = config.output_checkpoint_dir / 'best_frame_state_model.pt'
+            default_checkpoint = config.output_checkpoints_dir / 'best_frame_state_model.pt'
             onnx_filename = f"frame_state_v{model_version}.onnx"
         else:
             labels = config.get_visibility_labels()
             label_to_index = config.get_visibility_label_to_index()
             model_version = config.training_visibility_model_version
-            default_checkpoint = config.output_checkpoint_dir / 'best_visibility_model.pt'
+            default_checkpoint = config.output_checkpoints_dir / 'best_visibility_model.pt'
             onnx_filename = f"visibility_v{model_version}.onnx"
         
         # Determine checkpoint
@@ -114,7 +112,10 @@ def main(args):
         logger.info(f"Metadata: {metadata_path}")
 
         if args.upload:
-            bucket = args.bucket or config.s3_bucket
+            bucket = config.s3_bucket
+            if not bucket:
+                logger.error("No S3 bucket configured. Set s3.bucket in config.local.yaml")
+                return 1
             s3_prefix = config.get_s3_model_version_prefix(model_version)
             logger.info(f"Uploading artifacts to s3://{bucket}/{s3_prefix}")
             uploader = S3ModelUploader(bucket, config.aws_region)
@@ -139,33 +140,12 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Export trained model to ONNX')
-    parser.add_argument(
-        '--task',
-        choices=['frame_state', 'visibility'],
-        default='frame_state',
-        help='Which model checkpoint to export'
-    )
-    parser.add_argument(
-        '--checkpoint',
-        type=str,
-        help='Path to PyTorch checkpoint file (defaults to best_<task>_model.pt)'
-    )
-    parser.add_argument(
-        '--config',
-        type=str,
-        default='config.yaml',
-        help='Path to config.yaml file'
-    )
-    parser.add_argument(
-        '--upload',
-        action='store_true',
-        help='Upload exported model and metadata to S3'
-    )
-    parser.add_argument(
-        '--bucket',
-        type=str,
-        help='S3 bucket name (overrides config.yaml)'
-    )
+    parser.add_argument('--task', required=True, choices=['frame_state', 'visibility'],
+                        help='Which model to export (required)')
+    parser.add_argument('--checkpoint', type=str,
+                        help='Path to checkpoint file (defaults to best_<task>_model.pt)')
+    parser.add_argument('--upload', action='store_true',
+                        help='Upload exported model and metadata to S3')
     parser.add_argument('--best-epoch', type=int, help='Best epoch number')
     parser.add_argument('--best-val-loss', type=float, help='Best validation loss')
     parser.add_argument('--final-val-accuracy', type=float, help='Final validation accuracy')
@@ -173,5 +153,4 @@ if __name__ == '__main__':
     parser.add_argument('--final-val-loss', type=float, help='Final validation loss')
     
     args = parser.parse_args()
-    exit_code = main(args)
-    sys.exit(exit_code)
+    sys.exit(main(args))

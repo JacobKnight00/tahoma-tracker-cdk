@@ -175,10 +175,9 @@ public class ImageScrapingService {
      * Processes a single timestamp (UTC) without running the full backfill loop.
      *
      * @param tsUtc timestamp in UTC
-     * @param publishLatest whether to publish latest.json after a successful run
      * @return ImageContext for the run, or null if skipped/outside window
      */
-    public ImageContext processSingle(ZonedDateTime tsUtc, boolean publishLatest) throws IOException, InterruptedException {
+    public ImageContext processSingle(ZonedDateTime tsUtc) throws IOException, InterruptedException {
         ZonedDateTime local = timeWindow.bucketStartLocal(tsUtc);
 
         if (!timeWindow.withinWindow(local)) {

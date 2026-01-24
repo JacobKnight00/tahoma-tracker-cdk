@@ -1,57 +1,53 @@
 # Model Training Configuration
+# Resource-specific values should go in config.local.yaml (gitignored)
 
 # AWS Configuration
 aws:
-  profile: tahoma  # Optional: set to profile name (e.g., "tahoma") or leave null for default
+  profile: null  # Set in config.local.yaml or use environment
 
 # DynamoDB Configuration
 dynamodb:
-  table_name: TahomaTrackerImageLabels
+  table_name: null  # REQUIRED - set in config.local.yaml
   batch_size: 25
 
 # S3 Configuration
 s3:
-  bucket: tahomatrackerinfrastack-artifactsbucket2aac5544-sziy7mpohq8v
+  bucket: null  # REQUIRED - set in config.local.yaml
   cropped_images_prefix: needle-cam/cropped-images
   models_prefix: models
   analysis_prefix: analysis
+  manifests_prefix: manifests
 
-# Manifest Configuration (for filtering training data)
+# Manifest Configuration
 manifest:
-  base_url: "https://deaf937kouf5m.cloudfront.net/manifests/daily"
-  cache_dir: "./cache/manifests"
-  confidence_threshold: 0.95  # Filter out labels that conflict with >95% confidence predictions
-  
+  base_url: null  # Set in config.local.yaml
+  confidence_threshold: 0.95
+
+# Cache Configuration (downloaded data)
+cache:
+  images_dir: ./cache/images
+  manifests_dir: ./cache/manifests
+
 # Training Configuration
 training:
-  frame_state_model_version: 1  # increment for each new frame state model
-  visibility_model_version: 1   # increment for each new visibility model
+  frame_state_model_version: 1
+  visibility_model_version: 1
   epochs: 8
   batch_size: 32
   learning_rate: 0.001
-  train_split: 0.8  # 80% train, 20% validation
+  train_split: 0.8
   random_seed: 42
-  num_workers: 0  # Disabled due to boto3 pickle issues
-  
-# Performance notes:
-# - Training on CPU with ResNet50 takes ~5 seconds per batch
-# - Full 50 epochs will take several hours on CPU
-# - Apple Metal (MPS) GPU provides 10-50x speedup on M1/M2/M3 Macs
-# - Consider reducing epochs to 8-10 for initial testing
-  
+  num_workers: 0
+
 # Image Configuration
 image:
-  # ResNet50 standard input size is 224x224.
-  # While source images may be larger (e.g. 600x450), resizing to 224x224
-  # is standard for transfer learning and keeps training efficient.
   width: 224
   height: 224
-  # Normalization values - update after analyzing POC dataset statistics
   normalization:
-    mean: [0.485, 0.456, 0.406]  # ImageNet defaults; update for your dataset
-    std: [0.229, 0.224, 0.225]   # ImageNet defaults; update for your dataset
+    mean: [0.485, 0.456, 0.406]
+    std: [0.229, 0.224, 0.225]
 
-# Frame State Classification (4 classes - ALL images)
+# Frame State Classification (4 classes)
 frame_state:
   labels:
     - "good"
@@ -64,7 +60,7 @@ frame_state:
     bad: 2
     off_target: 3
 
-# Visibility Classification (3 classes - ONLY "good" images)
+# Visibility Classification (3 classes)
 visibility:
   labels:
     - "out"
@@ -78,21 +74,11 @@ visibility:
 # ONNX Export Configuration
 onnx:
   opset_version: 14
-  do_constant_folding: true
-  # ONNX input/output node names
   input_names: ["input_image"]
   output_names: ["output_probability"]
-  dynamic_axes:
-    input_image: {0: "batch_size"}
-    output_probability: {0: "batch_size"}
 
-# Logging Configuration
-logging:
-  level: INFO
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-# Output Configuration
+# Output Configuration (generated artifacts)
 output:
-  models_dir: ./models
-  logs_dir: ./logs
-  checkpoint_dir: ./checkpoints
+  models_dir: ./output/models
+  checkpoints_dir: ./output/checkpoints
+  logs_dir: ./output/logs
