@@ -2,6 +2,9 @@ package com.tahomatracker.service.api;
 
 import java.util.List;
 
+import software.amazon.awssdk.services.ssm.SsmClient;
+import software.amazon.awssdk.services.ssm.model.GetParameterRequest;
+
 /**
  * Configuration for the Label API Lambda.
  *
@@ -12,7 +15,8 @@ public record LabelApiConfig(
         String imageLabelsTableName,
         String analysisPrefix,
         String modelVersion,
-        List<String> allowedOrigins
+        List<String> allowedOrigins,
+        String apiSecret
 ) {
 
     /**
@@ -24,7 +28,8 @@ public record LabelApiConfig(
                 env("IMAGE_LABELS_TABLE_NAME", "TahomaTrackerImageLabels"),
                 env("ANALYSIS_PREFIX", "analysis"),
                 env("MODEL_VERSION", "v1"),
-                parseOrigins(env("ALLOWED_ORIGINS", "*"))
+                parseOrigins(env("ALLOWED_ORIGINS", "*")),
+                resolveApiSecret()
         );
     }
 
@@ -45,5 +50,28 @@ public record LabelApiConfig(
             return List.of("*");
         }
         return List.of(origins.split(","));
+    }
+
+    private static String resolveApiSecret() {
+        String direct = env("API_SHARED_SECRET", "");
+        if (direct != null && !direct.isBlank()) {
+            return direct;
+        }
+
+        String paramName = env("API_SHARED_SECRET_PARAM", "");
+        if (paramName == null || paramName.isBlank()) {
+            return "";
+        }
+
+        try (SsmClient ssm = SsmClient.builder().build()) {
+            var resp = ssm.getParameter(GetParameterRequest.builder()
+                    .name(paramName)
+                    .withDecryption(true)
+                    .build());
+            String value = resp.parameter().value();
+            return value == null ? "" : value;
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

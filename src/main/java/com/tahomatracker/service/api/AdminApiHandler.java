@@ -64,6 +64,11 @@ public class AdminApiHandler extends BaseApiHandler {
     }
 
     private Map<String, Object> handleGet(Map<String, Object> event, String origin) {
+        Map<String, Object> authError = validateApiSecret(event, config.apiSecret(), origin);
+        if (authError != null) {
+            return authError;
+        }
+
         Map<String, String> queryParams = getQueryParameters(event);
         
         String startDate = queryParams.get("startDate");
@@ -89,6 +94,11 @@ public class AdminApiHandler extends BaseApiHandler {
     private Map<String, Object> handlePost(Map<String, Object> event, String path, String origin) {
         if (!"/batch".equals(path) && !path.endsWith("/batch")) {
             return errorResponse(404, "Not found", origin);
+        }
+
+        Map<String, Object> authError = validateApiSecret(event, config.apiSecret(), origin);
+        if (authError != null) {
+            return authError;
         }
 
         String body = getBody(event);

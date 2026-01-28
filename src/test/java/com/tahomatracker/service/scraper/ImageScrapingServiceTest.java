@@ -32,7 +32,8 @@ class ImageScrapingServiceTest {
 
         ImageScrapingService service = new ImageScrapingService(config, planner, acquisition, classification, persistence, storage);
 
-        ImageContext ctx = service.processSingle(ZonedDateTime.now(ZoneId.of("UTC")), true);
+        ZonedDateTime ts = ZonedDateTime.of(2026, 1, 6, 12, 0, 0, 0, ZoneId.of("UTC"));
+        ImageContext ctx = service.processSingle(ts);
 
         assertNull(ctx);
         verifyNoInteractions(acquisition, classification);
@@ -61,7 +62,8 @@ class ImageScrapingServiceTest {
 
         ImageScrapingService service = new ImageScrapingService(config, planner, acquisition, classification, persistence, storage);
 
-        ImageContext ctx = service.processSingle(ZonedDateTime.now(ZoneId.of("UTC")), true);
+        ZonedDateTime ts = ZonedDateTime.of(2026, 1, 6, 12, 0, 0, 0, ZoneId.of("UTC"));
+        ImageContext ctx = service.processSingle(ts);
 
         assertNotNull(ctx);
         assertEquals(AcquisitionStatus.OK, ctx.getStatus());

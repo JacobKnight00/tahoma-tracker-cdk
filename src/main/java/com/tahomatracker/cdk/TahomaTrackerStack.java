@@ -28,6 +28,9 @@ import software.amazon.awscdk.services.lambda.HttpMethod;
 import software.amazon.awscdk.services.lambda.Architecture;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.CfnOutput;
+import software.amazon.awscdk.services.ssm.IStringParameter;
+import software.amazon.awscdk.services.ssm.SecureStringParameterAttributes;
+import software.amazon.awscdk.services.ssm.StringParameter;
 import software.amazon.awscdk.services.cloudfront.BehaviorOptions;
 import software.amazon.awscdk.services.cloudfront.CachePolicy;
 import software.amazon.awscdk.services.cloudfront.Distribution;
@@ -140,6 +143,12 @@ public class TahomaTrackerStack extends Stack {
         labelsTable.grantReadWriteData(pipelineFn);
         bucket.grantReadWrite(pipelineFn);
 
+        // Shared API secret (stored in SSM as a SecureString)
+        IStringParameter apiSharedSecret = StringParameter.fromSecureStringParameterAttributes(this, "ApiSharedSecret",
+                SecureStringParameterAttributes.builder()
+                        .parameterName("/tahoma-tracker/api-shared-secret")
+                        .build());
+
         // Label API Lambda - handles crowdsource label submissions
         // Uses Function URL for direct HTTP access (no API Gateway costs)
         List<String> labelApiAllowedOrigins = List.of(
@@ -170,12 +179,14 @@ public class TahomaTrackerStack extends Stack {
                         Map.entry("IMAGE_LABELS_TABLE_NAME", labelsTable.getTableName()),
                         Map.entry("ANALYSIS_PREFIX", "analysis"),
                         Map.entry("MODEL_VERSION", "v1"),
-                        Map.entry("ALLOWED_ORIGINS", String.join(",", labelApiAllowedOrigins))
+                        Map.entry("ALLOWED_ORIGINS", String.join(",", labelApiAllowedOrigins)),
+                        Map.entry("API_SHARED_SECRET_PARAM", apiSharedSecret.getParameterName())
                 ))
                 .build();
 
         labelsTable.grantReadWriteData(labelApiFn);
         bucket.grantRead(labelApiFn);
+        apiSharedSecret.grantRead(labelApiFn);
 
         // Function URL with CORS for public access
         FunctionUrl labelApiUrl = labelApiFn.addFunctionUrl(FunctionUrlOptions.builder()
@@ -183,7 +194,7 @@ public class TahomaTrackerStack extends Stack {
                 .cors(FunctionUrlCorsOptions.builder()
                         .allowedOrigins(labelApiAllowedOrigins)
                         .allowedMethods(java.util.List.of(HttpMethod.POST))
-                        .allowedHeaders(java.util.List.of("content-type", "authorization"))
+                        .allowedHeaders(java.util.List.of("content-type", "authorization", "x-api-secret"))
                         .maxAge(Duration.hours(1))
                         .build())
                 .build());
@@ -202,12 +213,14 @@ public class TahomaTrackerStack extends Stack {
                         Map.entry("IMAGE_LABELS_TABLE_NAME", labelsTable.getTableName()),
                         Map.entry("ANALYSIS_PREFIX", "analysis"),
                         Map.entry("MODEL_VERSION", "v1"),
-                        Map.entry("ALLOWED_ORIGINS", String.join(",", labelApiAllowedOrigins))
+                        Map.entry("ALLOWED_ORIGINS", String.join(",", labelApiAllowedOrigins)),
+                        Map.entry("API_SHARED_SECRET_PARAM", apiSharedSecret.getParameterName())
                 ))
                 .build();
 
         labelsTable.grantReadWriteData(adminApiFn);
         bucket.grantRead(adminApiFn);
+        apiSharedSecret.grantRead(adminApiFn);
 
         // Function URL with CORS for admin access
         FunctionUrl adminApiUrl = adminApiFn.addFunctionUrl(FunctionUrlOptions.builder()
@@ -215,7 +228,7 @@ public class TahomaTrackerStack extends Stack {
                 .cors(FunctionUrlCorsOptions.builder()
                         .allowedOrigins(labelApiAllowedOrigins)
                         .allowedMethods(java.util.List.of(HttpMethod.GET, HttpMethod.POST))
-                        .allowedHeaders(java.util.List.of("content-type", "authorization"))
+                        .allowedHeaders(java.util.List.of("content-type", "authorization", "x-api-secret"))
                         .maxAge(Duration.hours(1))
                         .build())
                 .build());
@@ -279,11 +292,6 @@ public class TahomaTrackerStack extends Stack {
                         .cachePolicy(CachePolicy.CACHING_OPTIMIZED)
                         .build())
                 .additionalBehaviors(Map.of(
-                        "latest/*", BehaviorOptions.builder()
-                                .origin(origin)
-                                .viewerProtocolPolicy(ViewerProtocolPolicy.REDIRECT_TO_HTTPS)
-                                .cachePolicy(latestCachePolicy)
-                                .build(),
                         "manifests/daily/current.json", BehaviorOptions.builder()
                                 .origin(origin)
                                 .viewerProtocolPolicy(ViewerProtocolPolicy.REDIRECT_TO_HTTPS)

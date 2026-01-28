@@ -83,6 +83,32 @@ public abstract class BaseApiHandler implements RequestHandler<Map<String, Objec
         return corsResponse(204, null, origin);
     }
 
+    protected Map<String, Object> validateApiSecret(Map<String, Object> event, String expectedSecret, String origin) {
+        if (expectedSecret == null || expectedSecret.isBlank()) {
+            return null; // Secret not configured; skip validation to avoid blocking dev/local
+        }
+
+        String provided = getHeader(event, "x-api-secret");
+        if (provided == null || !provided.equals(expectedSecret)) {
+            log.warn("API secret validation failed");
+            return errorResponse(403, "Forbidden", origin);
+        }
+        return null;
+    }
+
+    protected String getHeader(Map<String, Object> event, String headerName) {
+        Object headersObj = event.get("headers");
+        if (headersObj instanceof Map<?, ?> headers) {
+            for (var entry : headers.entrySet()) {
+                if (entry.getKey() != null && headerName.equalsIgnoreCase(entry.getKey().toString())) {
+                    Object value = entry.getValue();
+                    return value != null ? value.toString() : null;
+                }
+            }
+        }
+        return null;
+    }
+
     protected Map<String, Object> jsonResponse(int statusCode, Object body, String origin) {
         try {
             String json = MAPPER.writeValueAsString(body);

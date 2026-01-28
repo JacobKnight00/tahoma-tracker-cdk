@@ -4,7 +4,6 @@ import java.util.Map;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.tahomatracker.service.api.BaseApiHandler;
 import com.tahomatracker.service.modules.LabelApiModule;
 import com.tahomatracker.service.api.dto.LabelRequest;
 import com.tahomatracker.service.api.dto.LabelResponse;
@@ -62,6 +61,11 @@ public class LabelApiHandler extends BaseApiHandler {
     }
 
     private Map<String, Object> handlePost(Map<String, Object> event, String origin) {
+        Map<String, Object> authError = validateApiSecret(event, config.apiSecret(), origin);
+        if (authError != null) {
+            return authError;
+        }
+
         String body = getBody(event);
         if (body == null || body.isBlank()) {
             return errorResponse(400, "Request body is required", origin);

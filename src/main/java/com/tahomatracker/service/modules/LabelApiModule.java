@@ -3,6 +3,7 @@ package com.tahomatracker.service.modules;
 import javax.inject.Singleton;
 
 import com.tahomatracker.service.api.LabelApiConfig;
+import com.tahomatracker.service.api.LabelSubmissionService;
 import com.tahomatracker.service.external.DynamoDbLabelRepository;
 import com.tahomatracker.service.external.LabelRepository;
 import com.tahomatracker.service.external.ObjectStorageClient;
@@ -44,5 +45,14 @@ public class LabelApiModule {
     @Singleton
     ObjectStorageClient provideObjectStorageClient(S3Client s3Client, LabelApiConfig config) {
         return new S3ObjectStorageClient(s3Client, config.bucketName());
+    }
+
+    @Provides
+    @Singleton
+    LabelSubmissionService provideLabelSubmissionService(
+            LabelRepository labelRepository,
+            ObjectStorageClient storageClient,
+            LabelApiConfig config) {
+        return new LabelSubmissionService(labelRepository, storageClient, config);
     }
 }
