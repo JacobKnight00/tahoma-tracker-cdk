@@ -43,6 +43,11 @@ public class DailyManifest {
     private DailyManifestSummary summary;
 
     /**
+     * Daylight information for this date at the camera location.
+     */
+    private DaylightInfo daylight;
+
+    /**
      * ISO timestamp when this manifest was last updated.
      */
     private String generatedAt;
@@ -118,6 +123,25 @@ public class DailyManifest {
          * Whether any image had visibility="partially_out".
          */
         private boolean hadPartiallyOut;
+    }
+
+    /**
+     * Daylight timestamps for the camera location on this date.
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class DaylightInfo {
+        /**
+         * Sunrise timestamp in ISO-8601 UTC format.
+         */
+        private String sunriseAt;
+
+        /**
+         * Sunset timestamp in ISO-8601 UTC format.
+         */
+        private String sunsetAt;
     }
 
     /**

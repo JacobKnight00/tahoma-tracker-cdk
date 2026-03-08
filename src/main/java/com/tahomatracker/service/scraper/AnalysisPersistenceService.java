@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import lombok.extern.slf4j.Slf4j;
+import org.shredzone.commons.suncalc.SunTimes;
 
 /**
  * Service for persisting analysis results and manifests to S3.
@@ -33,6 +34,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class AnalysisPersistenceService {
+
+    private static final double CAMERA_LATITUDE = 47.6204;
+    private static final double CAMERA_LONGITUDE = -122.3491;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
@@ -121,6 +125,13 @@ public class AnalysisPersistenceService {
         DailyManifest manifest = loadDailyManifest(archivedKey)
                 .orElseGet(() -> DailyManifest.builder().date(dateStr).build());
 
+        if (version.equals(primaryVersion)) {
+            ensureDaylight(manifest, LocalDate.of(
+                    Integer.parseInt(imageId.getYear()),
+                    Integer.parseInt(imageId.getMonth()),
+                    Integer.parseInt(imageId.getDay())));
+        }
+
         DailyManifest.DailyManifestEntry entry = DailyManifest.DailyManifestEntry.builder()
                 .time(imageId.getTime())
                 .frameState(context.getFrameState() != null ? context.getFrameState().getValue() : null)
@@ -194,6 +205,7 @@ public class AnalysisPersistenceService {
                 .filter(m -> dateStr.equals(m.getDate()))
                 .orElseGet(() -> DailyManifest.builder().date(dateStr).build());
 
+        ensureDaylight(manifest, today);
         if (manifest.getSummary() == null) {
             manifest.recalculateSummary();
         }
@@ -316,5 +328,31 @@ public class AnalysisPersistenceService {
         Map<String, Object> map = MAPPER.convertValue(manifest,
                 MAPPER.getTypeFactory().constructMapType(HashMap.class, String.class, Object.class));
         storage.putJson(key, map);
+    }
+
+    private void ensureDaylight(DailyManifest manifest, LocalDate date) {
+        if (manifest.getDaylight() != null
+                && manifest.getDaylight().getSunriseAt() != null
+                && manifest.getDaylight().getSunsetAt() != null) {
+            return;
+        }
+
+        SunTimes sunTimes = SunTimes.compute()
+                .on(date)
+                .timezone(localTz)
+                .at(CAMERA_LATITUDE, CAMERA_LONGITUDE)
+                .execute();
+
+        var sunrise = sunTimes.getRise();
+        var sunset = sunTimes.getSet();
+
+        if (sunrise == null || sunset == null || sunTimes.isAlwaysUp() || sunTimes.isAlwaysDown()) {
+            throw new IllegalStateException("Unable to compute sunrise/sunset for " + date);
+        }
+
+        manifest.setDaylight(DailyManifest.DaylightInfo.builder()
+                .sunriseAt(sunrise.toInstant().toString())
+                .sunsetAt(sunset.toInstant().toString())
+                .build());
     }
 }

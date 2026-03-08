@@ -2,7 +2,7 @@ package com.tahomatracker.service.modules;
 
 import javax.inject.Singleton;
 
-import com.tahomatracker.service.external.FastSliceFetcher;
+import com.tahomatracker.service.external.RoundshotFetcher;
 import com.tahomatracker.service.ScraperConfig;
 import com.tahomatracker.service.classifier.FrameStateClassifier;
 import com.tahomatracker.service.classifier.OnnxFrameStateClassifier;
@@ -10,8 +10,8 @@ import com.tahomatracker.service.classifier.OnnxModelLoader;
 import com.tahomatracker.service.classifier.OnnxVisibilityClassifier;
 import com.tahomatracker.service.classifier.VisibilityClassifier;
 import com.tahomatracker.service.external.ObjectStorageClient;
+import com.tahomatracker.service.external.ImageFetcher;
 import com.tahomatracker.service.external.S3ObjectStorageClient;
-import com.tahomatracker.service.external.SliceFetcher;
 import com.tahomatracker.service.scraper.AnalysisPersistenceService;
 import com.tahomatracker.service.scraper.ImageAcquisitionService;
 import com.tahomatracker.service.scraper.ImageClassificationService;
@@ -30,8 +30,6 @@ import software.amazon.awssdk.services.s3.S3Client;
  */
 @Module
 public class ScraperModule {
-
-    private static final int SLICE_FETCHER_THREADS = 4;
 
     private final ScraperConfig config;
 
@@ -53,8 +51,8 @@ public class ScraperModule {
 
     @Provides
     @Singleton
-    SliceFetcher provideSliceFetcher() {
-        return new FastSliceFetcher(config.cameraBaseUrl, SLICE_FETCHER_THREADS);
+    ImageFetcher provideImageFetcher() {
+        return new RoundshotFetcher(config.cameraBaseUrl);
     }
 
     @Provides
@@ -92,7 +90,7 @@ public class ScraperModule {
     @Provides
     @Singleton
     ImageAcquisitionService provideImageAcquisitionService(
-            SliceFetcher fetcher,
+            ImageFetcher fetcher,
             ObjectStorageClient storage) {
         return new ImageAcquisitionService(
                 fetcher, storage, config.panosPrefix, config.croppedPrefix);

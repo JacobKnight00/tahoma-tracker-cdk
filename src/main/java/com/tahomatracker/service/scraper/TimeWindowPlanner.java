@@ -13,8 +13,10 @@ import java.util.List;
  * Handles time bucketing, window checks, and key formatting for processing runs.
  */
 public class TimeWindowPlanner {
+    // Roundshot camera path format: YYYY-MM-DD/HH-mm-00
+    // Seconds are always 00 since Roundshot publishes on exact 10-minute marks.
     private static final DateTimeFormatter FOLDER_FORMAT =
-            DateTimeFormatter.ofPattern("yyyy/MM/dd/yyyy_MMdd_HHmmss");
+            DateTimeFormatter.ofPattern("yyyy-MM-dd/HH-mm-'00'");
     private static final DateTimeFormatter KEY_FORMAT =
             DateTimeFormatter.ofPattern("yyyy/MM/dd/HHmm");
 
@@ -27,21 +29,7 @@ public class TimeWindowPlanner {
     public ZonedDateTime bucketStartLocal(ZonedDateTime tsUtc) {
         ZonedDateTime local = tsUtc.withZoneSameInstant(config.localTz);
         int minute = (local.getMinute() / config.stepMinutes) * config.stepMinutes;
-        local = local.withMinute(minute).withSecond(0).withNano(0);
-        if (local.getHour() < config.windowStartHour) {
-            ZonedDateTime previousDay = local.minusDays(1);
-            return previousDay.withHour(config.windowEndHour - 1)
-                    .withMinute(60 - config.stepMinutes)
-                    .withSecond(0)
-                    .withNano(0);
-        }
-        if (local.getHour() >= config.windowEndHour) {
-            return local.withHour(config.windowEndHour - 1)
-                    .withMinute(60 - config.stepMinutes)
-                    .withSecond(0)
-                    .withNano(0);
-        }
-        return local;
+        return local.withMinute(minute).withSecond(0).withNano(0);
     }
 
     public boolean withinWindow(ZonedDateTime local) {

@@ -117,19 +117,19 @@ public class TahomaTrackerStack extends Stack {
                         .architecture(Architecture.X86_64)
                         .handler("com.tahomatracker.service.ScraperHandler::handleRequest")
                         .code(Code.fromAsset("target/tahomacdk-0.1.jar"))
-                        .memorySize(1024)
+                        .memorySize(2048)  // Increased for 5.5 MB Roundshot pano images
                         .timeout(Duration.minutes(5))  // Increased for automatic backfill
                         .environment(Map.ofEntries(
                                 Map.entry("BUCKET_NAME", bucket.getBucketName()),
                                 Map.entry("IMAGE_LABELS_TABLE_NAME", labelsTable.getTableName()),
-                                Map.entry("CAMERA_BASE_URL", "https://d3omclagh7m7mg.cloudfront.net/assets"),
+                                Map.entry("CAMERA_BASE_URL", "https://storage.roundshot.com/544a1a9d451563.40343637"),
                                 Map.entry("PANOS_PREFIX", "needle-cam/panos"),
                                 Map.entry("CROPPED_PREFIX", "needle-cam/cropped-images"),
                                 Map.entry("ANALYSIS_PREFIX", "analysis"),
                                 Map.entry("MODELS_PREFIX", "models"),
-                                Map.entry("CROP_BOX", "3975,200,4575,650"),
+                                Map.entry("CROP_BOX", "7550,350,8750,1250"),
                                 Map.entry("OUT_THRESHOLD", "0.85"),
-                                Map.entry("MODEL_VERSION", "v1"),
+                                Map.entry("MODEL_VERSION", "v2"),
                                 Map.entry("MODEL_VERSIONS", "v1,v2"),
                                 Map.entry("LOCAL_TZ", "America/Los_Angeles"),
                                 Map.entry("WINDOW_START_HOUR", "4"),
